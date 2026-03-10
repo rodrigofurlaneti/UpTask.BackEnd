@@ -9,7 +9,7 @@ using UpTask.Domain.ValueObjects;
 namespace UpTask.Application.Features.Auth.Commands;
 
 // ── DTOs ─────────────────────────────────────────────────────────────────────
-public record AuthTokenDto(string AccessToken, string TokenType, int ExpiresIn, Guid UserId, string Email, string Role);
+public record AuthTokenDto(string AccessToken, string TokenType, int ExpiresIn, Guid UserId, string Email, string Role, string Name);
 public record RegisterDto(string Name, string Email, string Password, string ConfirmPassword);
 public record LoginDto(string Email, string Password);
 
@@ -50,7 +50,7 @@ public class RegisterCommandHandler(
         await uow.SaveChangesAsync(ct);
 
         var token = jwtService.GenerateToken(user.Id, user.Email.Value, user.Profile.ToString());
-        return new AuthTokenDto(token, "Bearer", 3600, user.Id, user.Email.Value, user.Profile.ToString());
+        return new AuthTokenDto(token, "Bearer", 3600, user.Id, user.Email.Value, user.Profile.ToString(), user.Name);
     }
 }
 
@@ -82,10 +82,10 @@ public class LoginCommandHandler(
             throw new UnauthorizedException("Invalid credentials.");
 
         user.RecordLogin();
-        uow.SaveChangesAsync(ct).GetAwaiter(); // fire-and-forget login time
+        _ = uow.SaveChangesAsync(ct); // fire-and-forget: atualiza lastLoginAt sem bloquear
 
         var token = jwtService.GenerateToken(user.Id, user.Email.Value, user.Profile.ToString());
-        return new AuthTokenDto(token, "Bearer", 3600, user.Id, user.Email.Value, user.Profile.ToString());
+        return new AuthTokenDto(token, "Bearer", 3600, user.Id, user.Email.Value, user.Profile.ToString(), user.Name);
     }
 }
 

@@ -17,7 +17,7 @@ public record ProjectMemberDto(Guid UserId, string UserName, string Email, Membe
 
 // ── Create Project ────────────────────────────────────────────────────────────
 public record CreateProjectCommand(string Name, string? Description, Priority Priority,
-    DateOnly? StartDate, DateOnly? PlannedEndDate, Guid? CategoryId, Guid OwnerId) : IRequest<ProjectDto>;
+    DateOnly? StartDate, DateOnly? PlannedEndDate, Guid? CategoryId, Guid OwnerId, string? Color = null) : IRequest<ProjectDto>;
 
 public class CreateProjectValidator : AbstractValidator<CreateProjectCommand>
 {
@@ -36,7 +36,7 @@ public class CreateProjectHandler(IProjectRepository repo, IUnitOfWork uow)
     public async Task<ProjectDto> Handle(CreateProjectCommand cmd, CancellationToken ct)
     {
         var project = Project.Create(cmd.OwnerId, cmd.Name, cmd.Description,
-            cmd.Priority, cmd.StartDate, cmd.PlannedEndDate, cmd.CategoryId);
+            cmd.Priority, cmd.StartDate, cmd.PlannedEndDate, cmd.CategoryId, cmd.Color);
         await repo.AddAsync(project, ct);
         await uow.SaveChangesAsync(ct);
         return ProjectMapper.MapToDto(project, 0, 0);

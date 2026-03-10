@@ -29,7 +29,7 @@ public sealed class Project : BaseEntity
     private Project() { }
 
     public static Project Create(Guid ownerId, string name, string? description,
-        Priority priority, DateOnly? startDate, DateOnly? plannedEndDate, Guid? categoryId = null)
+        Priority priority, DateOnly? startDate, DateOnly? plannedEndDate, Guid? categoryId = null, string? color = null)
     {
         if (string.IsNullOrWhiteSpace(name)) throw new BusinessRuleException("Project name is required.");
         if (startDate.HasValue && plannedEndDate.HasValue && plannedEndDate < startDate)
@@ -45,6 +45,7 @@ public sealed class Project : BaseEntity
             StartDate = startDate,
             PlannedEndDate = plannedEndDate,
             CategoryId = categoryId,
+            Color = string.IsNullOrWhiteSpace(color) ? "#1976D2" : color,
             Status = ProjectStatus.Draft,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow

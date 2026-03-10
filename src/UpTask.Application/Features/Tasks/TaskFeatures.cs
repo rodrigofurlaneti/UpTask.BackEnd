@@ -11,7 +11,7 @@ namespace UpTask.Application.Features.Tasks;
 // ── DTOs ─────────────────────────────────────────────────────────────────────
 public record TaskDto(Guid Id, string Title, string? Description, TaskStatus Status, Priority Priority,
     DateTime? DueDate, DateTime? CompletedAt, decimal? EstimatedHours, decimal HoursWorked,
-    int? StoryPoints, bool IsOverdue, Guid? ProjectId, Guid? ParentTaskId,
+    int? StoryPoints, bool IsOverdue, Guid? ProjectId, string? ProjectName, Guid? ParentTaskId,
     Guid? AssigneeId, string? AssigneeName, DateTime CreatedAt);
 
 public record TaskDetailDto(TaskDto Task, IEnumerable<TaskDto> SubTasks,
@@ -264,6 +264,6 @@ internal static class TaskMapper
     internal static TaskDto MapToDto(TaskItem t) => new(
         t.Id, t.Title, t.Description, t.Status, t.Priority,
         t.DueDate, t.CompletedAt, t.EstimatedHours, t.HoursWorked,
-        t.StoryPoints, t.IsOverdue(), t.ProjectId, t.ParentTaskId,
+        t.StoryPoints, t.IsOverdue(), t.ProjectId, t.Project?.Name, t.ParentTaskId,
         t.AssigneeId, t.Assignee?.Name, t.CreatedAt);
 }

@@ -66,8 +66,9 @@ public sealed class TaskRepository(AppDbContext db) : Repository<TaskItem>(db), 
 
     public async Task<IEnumerable<TaskItem>> GetByAssigneeAsync(Guid userId, CancellationToken ct = default)
         => await _db.Tasks
+            .Include(t => t.Assignee)
             .Include(t => t.Project)
-            .Where(t => t.AssigneeId == userId && t.Status != Domain.Enums.TaskStatus.Cancelled)
+            .Where(t => (t.AssigneeId == userId || t.CreatedBy == userId) && t.Status != Domain.Enums.TaskStatus.Cancelled)
             .OrderBy(t => t.DueDate).ToListAsync(ct);
 
     public async Task<IEnumerable<TaskItem>> GetOverdueAsync(CancellationToken ct = default)
@@ -94,6 +95,7 @@ public sealed class TaskRepository(AppDbContext db) : Repository<TaskItem>(db), 
     public async Task<TaskItem?> GetWithDetailsAsync(Guid id, CancellationToken ct = default)
         => await _db.Tasks
             .Include(t => t.Assignee)
+            .Include(t => t.Project)
             .Include(t => t.Checklists).ThenInclude(c => c.Items)
             .Include(t => t.Comments).ThenInclude(c => c.Author)
             .Include(t => t.Tags).ThenInclude(tt => tt.Tag)
