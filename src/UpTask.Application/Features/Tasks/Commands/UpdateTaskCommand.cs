@@ -9,7 +9,7 @@ using UpTask.Domain.ValueObjects; // Adicionado para o TaskTitle
 namespace UpTask.Application.Features.Tasks.Commands
 {
     // ── Update Task ───────────────────────────────────────────────────────────────
-    public record UpdateTaskCommand(Guid TaskId, Guid RequesterId, string Title, string? Description,
+    public record UpdateTaskCommand(Guid TaskId, Guid UserId, Guid RequesterId, string Title, string? Description,
         Priority Priority, DateTime? StartDate, DateTime? DueDate, int? StoryPoints, Guid? CategoryId) : IRequest<TaskDto>;
 
     public class UpdateTaskHandler(ITaskRepository repo, IUnitOfWork uow)
@@ -37,7 +37,7 @@ namespace UpTask.Application.Features.Tasks.Commands
                 null); // estimatedHours
 
             await uow.SaveChangesAsync(ct);
-            return TaskMapper.MapToDto(task);
+            return TaskMapper.ToDto(task);
         }
     }
 }

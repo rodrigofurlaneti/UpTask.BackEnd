@@ -27,7 +27,7 @@ namespace UpTask.Application.Features.Tasks.Queries
             var tasks = await repo.GetByProjectAsync(q.ProjectId, ct);
 
             // Agora o TaskMapper é reconhecido
-            return tasks.Select(TaskMapper.MapToDto);
+            return tasks.Select(TaskMapper.ToDto);
         }
     }
 
@@ -40,7 +40,7 @@ namespace UpTask.Application.Features.Tasks.Queries
             var tasks = await repo.GetByAssigneeAsync(q.UserId, ct);
 
             // Agora o TaskMapper é reconhecido
-            return tasks.Select(TaskMapper.MapToDto);
+            return tasks.Select(TaskMapper.ToDto);
         }
     }
 }

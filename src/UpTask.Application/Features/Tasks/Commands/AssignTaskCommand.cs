@@ -9,7 +9,7 @@ using UpTask.Domain.Interfaces;
 
 namespace UpTask.Application.Features.Tasks.Commands
 {
-    public record AssignTaskCommand(Guid TaskId, Guid RequesterId, Guid AssigneeId) : IRequest<TaskDto>;
+    public record AssignTaskCommand(Guid TaskId, Guid RequesterId, Guid AssigneeId, Guid AdminId) : IRequest<TaskDto>;
 
     public class AssignTaskHandler(
         ITaskRepository repo,
@@ -36,7 +36,7 @@ namespace UpTask.Application.Features.Tasks.Commands
             task.Assign(cmd.AssigneeId);
 
             await uow.SaveChangesAsync(ct);
-            return TaskMapper.MapToDto(task);
+            return TaskMapper.ToDto(task);
         }
     }
 }

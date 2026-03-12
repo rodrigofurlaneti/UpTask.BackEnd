@@ -22,7 +22,7 @@ namespace UpTask.Application.Features.Tasks.Commands
             await uow.SaveChangesAsync(ct);
 
             // Agora o TaskMapper é reconhecido
-            return TaskMapper.MapToDto(task);
+            return TaskMapper.ToDto(task);
         }
     }
 }

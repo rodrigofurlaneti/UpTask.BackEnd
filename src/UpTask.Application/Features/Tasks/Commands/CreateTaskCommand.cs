@@ -54,7 +54,7 @@ namespace UpTask.Application.Features.Tasks.Commands
             await repo.AddAsync(task, ct);
             await uow.SaveChangesAsync(ct);
 
-            return TaskMapper.MapToDto(task);
+            return TaskMapper.ToDto(task);
         }
     }
 }

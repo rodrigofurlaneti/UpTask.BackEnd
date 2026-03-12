@@ -1,24 +1,23 @@
 ﻿using MediatR;
 using UpTask.Application.Features.Tasks.DTOs;
-using UpTask.Application.Features.Tasks.Mapper; // Adicionado para o TaskMapper
-using UpTask.Domain.Exceptions;
+using UpTask.Application.Features.Tasks.Mapper;
+using UpTask.Domain.Common;
 using UpTask.Domain.Interfaces;
 
 namespace UpTask.Application.Features.Tasks.Queries
 {
-    public record GetTaskByIdQuery(Guid Id) : IRequest<TaskDto?>;
-
+    public record GetTaskByIdQuery(Guid Id, Guid UserId) : IRequest<Result<TaskDetailDto>>;
     public class GetTaskByIdHandler(ITaskRepository taskRepository)
-        : IRequestHandler<GetTaskByIdQuery, TaskDto?>
+        : IRequestHandler<GetTaskByIdQuery, Result<TaskDetailDto>>
     {
-        public async Task<TaskDto?> Handle(GetTaskByIdQuery request, CancellationToken ct)
+        public async Task<Result<TaskDetailDto>> Handle(GetTaskByIdQuery request, CancellationToken ct)
         {
-            var task = await taskRepository.GetByIdAsync(request.Id, ct);
+            var task = await taskRepository.GetWithDetailsAsync(request.Id, ct);
 
-            if (task is null) return null;
+            if (task is null)
+                return Result<TaskDetailDto>.Failure(Error.NotFound("Tasks.NotFound", "Task not found."));
 
-            // Correção: Agora o TaskMapper é reconhecido pelo compilador
-            return TaskMapper.MapToDto(task);
+            return Result<TaskDetailDto>.Success(TaskMapper.ToDetailDto(task));
         }
     }
 }

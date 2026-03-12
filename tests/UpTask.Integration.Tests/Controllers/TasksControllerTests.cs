@@ -1,6 +1,7 @@
-using System.Net;
+﻿using System.Net;
 using FluentAssertions;
 using UpTask.Domain.Enums;
+using Xunit;
 
 namespace UpTask.Integration.Tests.Controllers;
 
