@@ -1,143 +1,103 @@
-using System.Text;
-using System.Text.Json;
-using System.Text.Json.Serialization;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Tokens;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
-using Serilog;
-using UpTask.Application;
 using UpTask.API.Middleware;
-using UpTask.Infrastructure;
-using UpTask.Application.Common.Interfaces;
 using UpTask.API.Services;
-using System.Security.Claims;
+using UpTask.Application;
+using UpTask.Application.Common.Interfaces;
+using UpTask.Infrastructure;
+using UpTask.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ── Serilog ───────────────────────────────────────────────────────────────────
-Log.Logger = new LoggerConfiguration()
-    .ReadFrom.Configuration(builder.Configuration)
-    .Enrich.FromLogContext()
-    .WriteTo.Console()
-    .WriteTo.File("logs/uptask-.log", rollingInterval: RollingInterval.Day)
-    .CreateLogger();
+// ── Services ──────────────────────────────────────────────────────────────────
+builder.Services.AddApplication();
+builder.Services.AddInfrastructure(builder.Configuration);
 
-builder.Host.UseSerilog();
-
-// ── Application + Infrastructure ──────────────────────────────────────────────
-builder.Services.AddApplicationServices();
-builder.Services.AddInfrastructureServices(builder.Configuration);
-
-// ── HttpContext / Current User ────────────────────────────────────────────────
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 
-// ── JWT Authentication ────────────────────────────────────────────────────────
-var jwtSecret = builder.Configuration["Jwt:Secret"]
-    ?? throw new InvalidOperationException("JWT:Secret not configured.");
-
-builder.Services.AddAuthentication(opt => {
-    opt.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    opt.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-})
-.AddJwtBearer(opt =>
-{
-    opt.TokenValidationParameters = new TokenValidationParameters
-    {
-        ValidateIssuerSigningKey = true,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret)),
-        ValidateIssuer = true,
-        ValidIssuer = builder.Configuration["Jwt:Issuer"],
-        ValidateAudience = true,
-        ValidAudience = builder.Configuration["Jwt:Audience"],
-        ValidateLifetime = true,
-        ClockSkew = TimeSpan.Zero,
-        // CRÍTICO: Mapeia o NameIdentifier para o claim correto do seu Token
-        NameClaimType = ClaimTypes.NameIdentifier,
-        RoleClaimType = ClaimTypes.Role
-    };
-});
-
-builder.Services.AddAuthorization(opt =>
-{
-    opt.AddPolicy("AdminOnly", p => p.RequireRole("Admin"));
-    opt.AddPolicy("ManagerOrAdmin", p => p.RequireRole("Admin", "Manager"));
-});
-
-// ── Controllers + JSON Config ─────────────────────────────────────────────────
-builder.Services.AddControllers()
-    .AddJsonOptions(options =>
-    {
-        // Resolve o Erro 400: Garante que o C# entenda camelCase do Front-end
-        options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
-        options.JsonSerializerOptions.DictionaryKeyPolicy = JsonNamingPolicy.CamelCase;
-        options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
-        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
-    });
-
+builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
-// ── Swagger ───────────────────────────────────────────────────────────────────
-builder.Services.AddSwaggerGen(c =>
+// ── Swagger / OpenAPI ─────────────────────────────────────────────────────────
+builder.Services.AddSwaggerGen(opts =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo
+    opts.SwaggerDoc("v1", new OpenApiInfo
     {
         Title = "UpTask API",
         Version = "v1",
-        Description = "Task Organizer API — DDD + CQRS + Clean Architecture",
+        Description = "Task & project management API — built with Clean Architecture + CQRS"
     });
 
-    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    opts.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Description = "JWT Authorization header. Enter: **Bearer {token}**",
         Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        Scheme = "Bearer",
+        BearerFormat = "JWT",
         In = ParameterLocation.Header,
-        Type = SecuritySchemeType.ApiKey,
-        Scheme = "Bearer"
+        Description = "Enter 'Bearer {token}'"
     });
 
-    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    opts.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
         {
             new OpenApiSecurityScheme
             {
-                Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
             },
-            Array.Empty<string>()
+            []
         }
     });
 });
 
 // ── CORS ──────────────────────────────────────────────────────────────────────
-builder.Services.AddCors(opt => opt.AddPolicy("AllowAll", p =>
-    p.AllowAnyOrigin()
-     .AllowAnyMethod()
-     .AllowAnyHeader()));
+builder.Services.AddCors(opts =>
+{
+    opts.AddPolicy("AllowFrontend", policy =>
+    {
+        policy
+            .WithOrigins(builder.Configuration.GetSection("AllowedOrigins").Get<string[]>() ?? [])
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials();
+    });
+});
 
+builder.Services.AddAuthorization();
+
+// ── Build ─────────────────────────────────────────────────────────────────────
 var app = builder.Build();
 
-// ── Middleware Pipeline (A ORDEM IMPORTA!) ───────────────────────────────────
+// ── Auto-migrate on startup (Development only) ────────────────────────────────
+if (app.Environment.IsDevelopment())
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await db.Database.MigrateAsync();
+}
+
+// ── Middleware pipeline ───────────────────────────────────────────────────────
 app.UseMiddleware<GlobalExceptionMiddleware>();
 
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "UpTask v1"));
+    app.UseSwaggerUI();
 }
 
-app.UseSerilogRequestLogging();
-
-// O CORS deve vir antes de Auth
-app.UseCors("AllowAll");
-
 app.UseHttpsRedirection();
-
-// ESSA ORDEM É OBRIGATÓRIA
+app.UseCors("AllowFrontend");
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
 
-app.Run();
+await app.RunAsync();
 
+// Make the implicit Program class public for integration tests
 public partial class Program { }

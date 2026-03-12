@@ -1,50 +1,71 @@
-using System.Net;
 using System.Text.Json;
 using FluentValidation;
-using UpTask.Domain.Exceptions;
 
 namespace UpTask.API.Middleware;
 
-public sealed class GlobalExceptionMiddleware(RequestDelegate next, ILogger<GlobalExceptionMiddleware> logger)
+/// <summary>
+/// Last-resort exception handler.
+/// Catches unhandled exceptions and returns structured ProblemDetails JSON.
+/// FluentValidation exceptions (from fallback paths) are translated to 400.
+/// All other exceptions return 500 with a generic message in production.
+/// </summary>
+public sealed class GlobalExceptionMiddleware(
+    RequestDelegate next,
+    ILogger<GlobalExceptionMiddleware> logger,
+    IHostEnvironment env)
 {
-    public async Task InvokeAsync(HttpContext ctx)
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+    };
+
+    public async Task InvokeAsync(HttpContext context)
     {
         try
         {
-            await next(ctx);
+            await next(context);
+        }
+        catch (ValidationException ex)
+        {
+            logger.LogWarning(ex, "FluentValidation exception (unhandled path)");
+            await WriteProblemAsync(context, StatusCodes.Status400BadRequest, "Validation.Failed",
+                "One or more validation errors occurred.",
+                new { errors = ex.Errors.Select(e => new { e.PropertyName, e.ErrorMessage }) });
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Unhandled exception: {Message}", ex.Message);
-            await HandleExceptionAsync(ctx, ex);
+            logger.LogError(ex, "Unhandled exception on {Method} {Path}",
+                context.Request.Method, context.Request.Path);
+
+            var detail = env.IsDevelopment()
+                ? ex.ToString()
+                : "An unexpected error occurred. Please try again later.";
+
+            await WriteProblemAsync(context, StatusCodes.Status500InternalServerError,
+                "Server.Error", detail);
         }
     }
 
-    private static async Task HandleExceptionAsync(HttpContext ctx, Exception ex)
+    private static async Task WriteProblemAsync(
+        HttpContext context,
+        int statusCode,
+        string title,
+        string detail,
+        object? extensions = null)
     {
-        ctx.Response.ContentType = "application/json";
+        context.Response.ContentType = "application/problem+json";
+        context.Response.StatusCode = statusCode;
 
-        var (status, message, errors) = ex switch
+        var body = new
         {
-            ValidationException ve => (HttpStatusCode.UnprocessableEntity, "Validation failed",
-                ve.Errors.Select(e => e.ErrorMessage).ToArray()),
-            NotFoundException nfe => (HttpStatusCode.NotFound, nfe.Message, null),
-            UnauthorizedException ue => (HttpStatusCode.Forbidden, ue.Message, null),
-            BusinessRuleException bre => (HttpStatusCode.BadRequest, bre.Message, null),
-            _ => (HttpStatusCode.InternalServerError, "An unexpected error occurred.", null)
+            type = $"https://httpstatuses.io/{statusCode}",
+            title,
+            status = statusCode,
+            detail,
+            traceId = context.TraceIdentifier,
+            extensions
         };
 
-        ctx.Response.StatusCode = (int)status;
-
-        var response = new
-        {
-            success = false,
-            message,
-            errors,
-            timestamp = DateTime.UtcNow
-        };
-
-        await ctx.Response.WriteAsync(JsonSerializer.Serialize(response,
-            new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }));
+        await context.Response.WriteAsync(JsonSerializer.Serialize(body, JsonOptions));
     }
 }

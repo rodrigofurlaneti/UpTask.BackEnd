@@ -1,27 +1,24 @@
 namespace UpTask.Application.Common.Interfaces;
 
+/// <summary>Hashes and verifies user passwords.</summary>
+public interface IPasswordService
+{
+    string Hash(string plainText);
+    bool Verify(string plainText, string hash);
+}
+
+/// <summary>Issues and validates JWT Bearer tokens.</summary>
 public interface IJwtService
 {
     string GenerateToken(Guid userId, string email, string role);
-    (Guid UserId, string Email, string Role)? ValidateToken(string token);
+    bool ValidateToken(string token, out Guid userId);
 }
 
-public interface IPasswordService
-{
-    string Hash(string password);
-    bool Verify(string password, string hash);
-}
-
+/// <summary>Returns the authenticated user context from the HTTP request.</summary>
 public interface ICurrentUserService
 {
-    Guid? UserId { get; }
-    string? Email { get; }
-    string? Role { get; }
+    Guid UserId { get; }
+    string Email { get; }
+    string Role { get; }
     bool IsAuthenticated { get; }
-}
-
-public interface IEmailService
-{
-    Task SendPasswordResetAsync(string toEmail, string resetLink, CancellationToken ct = default);
-    Task SendWelcomeAsync(string toEmail, string userName, CancellationToken ct = default);
 }

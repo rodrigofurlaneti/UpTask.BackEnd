@@ -1,71 +1,57 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using UpTask.Application.Common.Interfaces;
-using UpTask.Domain.Exceptions;
-using System.Diagnostics;
+using UpTask.Domain.Common;
 
 namespace UpTask.API.Controllers;
 
+/// <summary>
+/// Base controller providing:
+///   - [ApiController] attribute (automatic model binding and validation).
+///   - [Authorize] by default â€” individual endpoints opt-out with [AllowAnonymous].
+///   - Helper methods to translate Result&lt;T&gt; into correct HTTP responses.
+///   - Injects ISender (MediatR) for dispatching commands and queries.
+/// </summary>
 [ApiController]
 [Authorize]
-[Route("api/v1/[controller]")]
+[Route("api/[controller]")]
 [Produces("application/json")]
-public abstract class ApiController(ISender mediator, ICurrentUserService currentUser) : ControllerBase
+public abstract class ApiController(ISender sender) : ControllerBase
 {
-    protected readonly ISender _mediator = mediator;
+    protected readonly ISender Sender = sender;
 
     /// <summary>
-    /// Recupera o ID do usuário logado com rastreio de erro para depuração.
+    /// Translates a Result&lt;T&gt; to the correct HTTP action result.
+    /// Success â†’ 200 OK with the value.
+    /// Failure â†’ mapped HTTP status code with a problem detail response.
     /// </summary>
-    protected Guid CurrentUserId
+    protected IActionResult Ok<TValue>(Result<TValue> result) =>
+        result.IsSuccess ? base.Ok(result.Value) : Problem(result.Error);
+
+    /// <summary>Translates a Result (no value) to 204 No Content or problem.</summary>
+    protected IActionResult NoContent(Result result) =>
+        result.IsSuccess ? base.NoContent() : Problem(result.Error);
+
+    /// <summary>Translates a Result to 201 Created or problem.</summary>
+    protected IActionResult Created<TValue>(string? routeName, object? routeValues, Result<TValue> result) =>
+        result.IsSuccess
+            ? base.CreatedAtRoute(routeName, routeValues, result.Value)
+            : Problem(result.Error);
+
+    private IActionResult Problem(Error error)
     {
-        get
+        var statusCode = error.Code switch
         {
-            var userId = currentUser.UserId;
+            var c when c.EndsWith(".NotFound") => StatusCodes.Status404NotFound,
+            var c when c.StartsWith("Auth.") => StatusCodes.Status401Unauthorized,
+            var c when c.StartsWith("Validation.") => StatusCodes.Status400BadRequest,
+            var c when c.EndsWith(".Conflict") => StatusCodes.Status409Conflict,
+            _ => StatusCodes.Status422UnprocessableEntity
+        };
 
-            if (userId == null)
-            {
-                // Rastreio no Console do Debug para identificar por que o 401 está ocorrendo
-                Debug.WriteLine("=== AUTH DEBUG ===");
-                Debug.WriteLine($"User Identity IsAuthenticated: {User.Identity?.IsAuthenticated}");
-                Debug.WriteLine($"Claims Count: {User.Claims.Count()}");
-
-                foreach (var claim in User.Claims)
-                {
-                    Debug.WriteLine($"Claim: {claim.Type} = {claim.Value}");
-                }
-
-                throw new UnauthorizedException("User not authenticated or Token claims mismatch.");
-            }
-
-            return userId.Value;
-        }
-    }
-
-    /// <summary>
-    /// Wrapper para as chamadas do Mediator com captura de erro centralizada.
-    /// </summary>
-    protected async Task<IActionResult> ExecuteCommand<T>(IRequest<T> command)
-    {
-        try
-        {
-            var result = await _mediator.Send(command);
-            return Ok(result);
-        }
-        catch (Exception ex)
-        {
-            // Log do erro real que está acontecendo no Handler ou no Banco
-            Debug.WriteLine("=== COMMAND ERROR ===");
-            Debug.WriteLine($"Error Type: {ex.GetType().Name}");
-            Debug.WriteLine($"Message: {ex.Message}");
-
-            if (ex.InnerException != null)
-                Debug.WriteLine($"Inner Exception: {ex.InnerException.Message}");
-
-            // Repassa a exceção para que o seu GlobalExceptionHandler (Middleware) 
-            // formate a resposta JSON correta para o Front-end.
-            throw;
-        }
+        return base.Problem(
+            detail: error.Description,
+            statusCode: statusCode,
+            title: error.Code);
     }
 }

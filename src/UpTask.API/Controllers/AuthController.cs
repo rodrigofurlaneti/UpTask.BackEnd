@@ -1,47 +1,46 @@
 ﻿using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using UpTask.Application.Common.Interfaces;
-using UpTask.Application.Common.Models;
 using UpTask.Application.Features.Auth.Commands;
+using UpTask.Application.Features.Auth.DTOs;
+namespace UpTask.API.Controllers;
 
-namespace UpTask.API.Controllers
+/// <summary>Handles user registration, login, and password management.</summary>
+[Route("api/auth")]
+public sealed class AuthController(ISender sender) : ApiController(sender)
 {
-    // ── AUTH ──────────────────────────────────────────────────────────────────────
+    /// <summary>Creates a new user account and returns a JWT token.</summary>
     [AllowAnonymous]
-    [Route("api/v1/auth")]
-    public sealed class AuthController(ISender mediator, ICurrentUserService currentUser)
-        : ApiController(mediator, currentUser)
+    [HttpPost("register")]
+    [ProducesResponseType(typeof(AuthTokenDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Register(RegisterCommand command, CancellationToken ct)
     {
-        /// <summary>Register a new account</summary>
-        [HttpPost("register")]
-        [ProducesResponseType(typeof(ApiResponse<AuthTokenDto>), 200)]
-        [ProducesResponseType(typeof(ApiResponse), 422)]
-        public async Task<IActionResult> Register([FromBody] RegisterDto dto, CancellationToken ct)
-        {
-            var result = await _mediator.Send(
-                new RegisterCommand(dto.Name, dto.Email, dto.Password, dto.ConfirmPassword), ct);
-            return Ok(ApiResponse<AuthTokenDto>.Ok(result, "Account created successfully."));
-        }
+        var result = await Sender.Send(command, ct);
+        if (!result.IsSuccess) return Ok(result); // reuses Problem translation
+        return StatusCode(StatusCodes.Status201Created, result.Value);
+    }
 
-        /// <summary>Login and receive JWT token</summary>
-        [HttpPost("login")]
-        [ProducesResponseType(typeof(ApiResponse<AuthTokenDto>), 200)]
-        [ProducesResponseType(typeof(ApiResponse), 401)]
-        public async Task<IActionResult> Login([FromBody] LoginDto dto, CancellationToken ct)
-        {
-            var result = await _mediator.Send(new LoginCommand(dto.Email, dto.Password), ct);
-            return Ok(ApiResponse<AuthTokenDto>.Ok(result));
-        }
+    /// <summary>Authenticates a user and returns a JWT token.</summary>
+    [AllowAnonymous]
+    [HttpPost("login")]
+    [ProducesResponseType(typeof(AuthTokenDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> Login(LoginCommand command, CancellationToken ct)
+    {
+        var result = await Sender.Send(command, ct);
+        return Ok(result);
+    }
 
-        /// <summary>Change current user password</summary>
-        [HttpPost("change-password")]
-        [Authorize]
-        public async Task<IActionResult> ChangePassword(
-            [FromBody] ChangePasswordCommand cmd, CancellationToken ct)
-        {
-            await _mediator.Send(cmd with { UserId = CurrentUserId }, ct);
-            return Ok(ApiResponse.Ok("Password changed successfully."));
-        }
+    /// <summary>Changes the current user's password.</summary>
+    [HttpPost("change-password")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> ChangePassword(ChangePasswordCommand command, CancellationToken ct)
+    {
+        var result = await Sender.Send(command, ct);
+        return NoContent(result);
     }
 }

@@ -1,4 +1,4 @@
-using UpTask.Domain.Common;
+﻿using UpTask.Domain.Common;
 using UpTask.Domain.Enums;
 using UpTask.Domain.Events;
 using UpTask.Domain.Exceptions;
@@ -6,8 +6,13 @@ using UpTask.Domain.ValueObjects;
 
 namespace UpTask.Domain.Entities;
 
-public sealed class User : BaseEntity
+/// <summary>
+/// User aggregate root.
+/// Encapsulates all identity and profile rules.
+/// </summary>
+public sealed class User : Entity
 {
+    // ── State ─────────────────────────────────────────────────────────────────
     public string Name { get; private set; } = string.Empty;
     public Email Email { get; private set; } = null!;
     public string PasswordHash { get; private set; } = string.Empty;
@@ -20,16 +25,26 @@ public sealed class User : BaseEntity
     public DateTime? PasswordResetTokenExpiresAt { get; private set; }
     public DateTime? LastLoginAt { get; private set; }
 
-    // Navigation
-    public UserSettings? Settings { get; private set; }
+    // ── Navigation ────────────────────────────────────────────────────────────
     private readonly List<ProjectMember> _projectMemberships = [];
     public IReadOnlyCollection<ProjectMember> ProjectMemberships => _projectMemberships.AsReadOnly();
 
-    private User() { }
+    // ── Constructor ───────────────────────────────────────────────────────────
+    private User() { } // EF Core
 
-    public static User Create(string name, Email email, string passwordHash, UserProfile profile = UserProfile.Member)
+    // ── Factory ───────────────────────────────────────────────────────────────
+    public static User Create(string name, Email email, string passwordHash,
+        UserProfile profile = UserProfile.Member)
     {
-        if (string.IsNullOrWhiteSpace(name)) throw new BusinessRuleException("Name is required.");
+        if (string.IsNullOrWhiteSpace(name))
+            throw new DomainException("Name is required.");
+
+        if (name.Trim().Length < 2)
+            throw new DomainException("Name must have at least 2 characters.");
+
+        if (string.IsNullOrWhiteSpace(passwordHash))
+            throw new DomainException("Password hash is required.");
+
         var user = new User
         {
             Id = Guid.NewGuid(),
@@ -38,57 +53,75 @@ public sealed class User : BaseEntity
             PasswordHash = passwordHash,
             Profile = profile,
             Status = UserStatus.Active,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.Now,
+            UpdatedAt = DateTime.Now
         };
-        user.Settings = UserSettings.CreateDefault(user.Id);
-        user.AddDomainEvent(new UserCreatedEvent(user.Id, user.Email.Value));
+
+        user.RaiseDomainEvent(new UserCreatedEvent(user.Id, user.Email.Value));
         return user;
     }
 
+    // ── Behavior ──────────────────────────────────────────────────────────────
     public void UpdateProfile(string name, string? phone, string? avatarUrl, string timeZone)
     {
-        if (string.IsNullOrWhiteSpace(name)) throw new BusinessRuleException("Name is required.");
+        if (string.IsNullOrWhiteSpace(name))
+            throw new DomainException("Name is required.");
+
         Name = name.Trim();
         Phone = phone?.Trim();
         AvatarUrl = avatarUrl;
-        TimeZone = timeZone;
-        SetUpdatedAt();
+        TimeZone = string.IsNullOrWhiteSpace(timeZone) ? "America/Sao_Paulo" : timeZone;
+        Touch();
     }
 
     public void SetPasswordResetToken(string token, DateTime expiresAt)
     {
+        if (string.IsNullOrWhiteSpace(token))
+            throw new DomainException("Token cannot be empty.");
+
         PasswordResetToken = token;
         PasswordResetTokenExpiresAt = expiresAt;
-        SetUpdatedAt();
+        Touch();
     }
 
     public void ChangePassword(string newPasswordHash)
     {
+        if (string.IsNullOrWhiteSpace(newPasswordHash))
+            throw new DomainException("Password hash is required.");
+
         PasswordHash = newPasswordHash;
         PasswordResetToken = null;
         PasswordResetTokenExpiresAt = null;
-        SetUpdatedAt();
+        Touch();
     }
 
     public void RecordLogin()
     {
         LastLoginAt = DateTime.UtcNow;
-        SetUpdatedAt();
+        Touch();
     }
 
     public void Suspend()
     {
-        if (Status == UserStatus.Suspended) throw new BusinessRuleException("User is already suspended.");
+        if (Status == UserStatus.Suspended)
+            throw new DomainException("User is already suspended.");
+
         Status = UserStatus.Suspended;
-        SetUpdatedAt();
+        Touch();
     }
 
     public void Activate()
     {
         Status = UserStatus.Active;
-        SetUpdatedAt();
+        Touch();
     }
 
+    // ── Domain Queries ────────────────────────────────────────────────────────
     public bool IsActive() => Status == UserStatus.Active;
+    public bool IsAdmin() => Profile == UserProfile.Admin;
+
+    public bool HasValidResetToken(string token) =>
+        PasswordResetToken == token &&
+        PasswordResetTokenExpiresAt.HasValue &&
+        PasswordResetTokenExpiresAt.Value > DateTime.Now;
 }

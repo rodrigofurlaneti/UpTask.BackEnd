@@ -1,23 +1,32 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using UpTask.Application.Common.Interfaces;
 
 namespace UpTask.Infrastructure.Authentication;
 
-public sealed class JwtService(IConfiguration config) : IJwtService
+/// <summary>Configuration options for JWT generation.</summary>
+public sealed class JwtOptions
 {
-    private readonly string _secret = config["Jwt:Secret"] ?? throw new InvalidOperationException("JWT secret not configured.");
-    private readonly string _issuer = config["Jwt:Issuer"] ?? "UpTask";
-    private readonly string _audience = config["Jwt:Audience"] ?? "UpTask";
-    private readonly int _expiresInMinutes = int.Parse(config["Jwt:ExpiresInMinutes"] ?? "60");
+    public const string SectionName = "Jwt";
+
+    public string SecretKey { get; init; } = string.Empty;
+    public string Issuer { get; init; } = "UpTask.API";
+    public string Audience { get; init; } = "UpTask.Client";
+    public int ExpirationMinutes { get; init; } = 60;
+}
+
+/// <summary>Generates and validates JWT Bearer tokens using HMAC-SHA256.</summary>
+internal sealed class JwtService(IOptions<JwtOptions> options) : IJwtService
+{
+    private readonly JwtOptions _options = options.Value;
 
     public string GenerateToken(Guid userId, string email, string role)
     {
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_secret));
-        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_options.SecretKey));
+        var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
         var claims = new[]
         {
@@ -26,51 +35,59 @@ public sealed class JwtService(IConfiguration config) : IJwtService
             new Claim(ClaimTypes.Role, role),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
             new Claim(JwtRegisteredClaimNames.Iat,
-                DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64)
+                DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(),
+                ClaimValueTypes.Integer64)
         };
 
         var token = new JwtSecurityToken(
-            issuer: _issuer,
-            audience: _audience,
+            issuer: _options.Issuer,
+            audience: _options.Audience,
             claims: claims,
-            expires: DateTime.UtcNow.AddMinutes(_expiresInMinutes),
-            signingCredentials: creds);
+            expires: DateTime.UtcNow.AddMinutes(_options.ExpirationMinutes),
+            signingCredentials: credentials);
 
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
-    public (Guid UserId, string Email, string Role)? ValidateToken(string token)
+    public bool ValidateToken(string token, out Guid userId)
     {
+        userId = Guid.Empty;
+
+        var tokenHandler = new JwtSecurityTokenHandler();
+        var key = Encoding.UTF8.GetBytes(_options.SecretKey);
+
         try
         {
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_secret));
-            var handler = new JwtSecurityTokenHandler();
-            var principal = handler.ValidateToken(token, new TokenValidationParameters
+            tokenHandler.ValidateToken(token, new TokenValidationParameters
             {
                 ValidateIssuerSigningKey = true,
-                IssuerSigningKey = key,
+                IssuerSigningKey = new SymmetricSecurityKey(key),
                 ValidateIssuer = true,
-                ValidIssuer = _issuer,
+                ValidIssuer = _options.Issuer,
                 ValidateAudience = true,
-                ValidAudience = _audience,
-                ValidateLifetime = true,
+                ValidAudience = _options.Audience,
                 ClockSkew = TimeSpan.Zero
-            }, out _);
+            }, out var validatedToken);
 
-            var userId = Guid.Parse(principal.FindFirstValue(JwtRegisteredClaimNames.Sub)!);
-            var email = principal.FindFirstValue(JwtRegisteredClaimNames.Email)!;
-            var role = principal.FindFirstValue(ClaimTypes.Role)!;
-            return (userId, email, role);
+            var jwt = (JwtSecurityToken)validatedToken;
+            userId = Guid.Parse(jwt.Subject);
+            return true;
         }
         catch
         {
-            return null;
+            return false;
         }
     }
 }
 
-public sealed class PasswordService : IPasswordService
+/// <summary>BCrypt-based password hashing and verification.</summary>
+internal sealed class PasswordService : IPasswordService
 {
-    public string Hash(string password) => BCrypt.Net.BCrypt.HashPassword(password, workFactor: 12);
-    public bool Verify(string password, string hash) => BCrypt.Net.BCrypt.Verify(password, hash);
+    private const int WorkFactor = 12;
+
+    public string Hash(string plainText) =>
+        BCrypt.Net.BCrypt.HashPassword(plainText, WorkFactor);
+
+    public bool Verify(string plainText, string hash) =>
+        BCrypt.Net.BCrypt.Verify(plainText, hash);
 }

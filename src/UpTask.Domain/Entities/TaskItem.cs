@@ -1,21 +1,24 @@
+﻿using System.Threading.Tasks;
 using UpTask.Domain.Common;
 using UpTask.Domain.Enums;
 using UpTask.Domain.Events;
 using UpTask.Domain.Exceptions;
-using TaskStatus = UpTask.Domain.Enums.TaskStatus;
+using UpTask.Domain.ValueObjects;
+using Ts = UpTask.Domain.Enums;
 
 namespace UpTask.Domain.Entities;
 
-public sealed class TaskItem : BaseEntity
+public sealed class TaskItem : Entity
 {
+    // ── State ─────────────────────────────────────────────────────────────────
     public Guid? ProjectId { get; private set; }
     public Guid? ParentTaskId { get; private set; }
     public Guid CreatedBy { get; private set; }
     public Guid? AssigneeId { get; private set; }
     public Guid? CategoryId { get; private set; }
-    public string Title { get; private set; } = string.Empty;
+    public TaskTitle Title { get; private set; } = null!;
     public string? Description { get; private set; }
-    public TaskStatus Status { get; private set; } = TaskStatus.Pending;
+    public Ts.TaskStatus Status { get; private set; } = Ts.TaskStatus.Pending;
     public Priority Priority { get; private set; } = Priority.Medium;
     public DateTime? StartDate { get; private set; }
     public DateTime? DueDate { get; private set; }
@@ -28,30 +31,47 @@ public sealed class TaskItem : BaseEntity
     public RecurrenceType? RecurrenceType { get; private set; }
     public DateOnly? NextRecurrence { get; private set; }
 
-    // Navigation
+    // ── Navigation ────────────────────────────────────────────────────────────
     public Project? Project { get; private set; }
     public TaskItem? ParentTask { get; private set; }
     public User? Assignee { get; private set; }
+
     private readonly List<TaskItem> _subTasks = [];
     public IReadOnlyCollection<TaskItem> SubTasks => _subTasks.AsReadOnly();
+
     private readonly List<Comment> _comments = [];
     public IReadOnlyCollection<Comment> Comments => _comments.AsReadOnly();
+
     private readonly List<TaskTag> _tags = [];
     public IReadOnlyCollection<TaskTag> Tags => _tags.AsReadOnly();
+
     private readonly List<Checklist> _checklists = [];
     public IReadOnlyCollection<Checklist> Checklists => _checklists.AsReadOnly();
+
     private readonly List<TaskDependency> _dependencies = [];
     public IReadOnlyCollection<TaskDependency> Dependencies => _dependencies.AsReadOnly();
 
-    private TaskItem() { }
+    // ── Constructor ───────────────────────────────────────────────────────────
+    private TaskItem() { } // EF Core
 
-    public static TaskItem Create(Guid createdBy, string title, string? description,
-        Priority priority, DateTime? dueDate, Guid? projectId = null, Guid? parentTaskId = null,
-        Guid? categoryId = null, int? storyPoints = null)
+    // ── Factory ───────────────────────────────────────────────────────────────
+    public static TaskItem Create(
+        Guid createdBy,
+        TaskTitle title,
+        string? description,
+        Priority priority,
+        DateTime? dueDate,
+        Guid? projectId = null,
+        Guid? parentTaskId = null,
+        Guid? categoryId = null,
+        int? storyPoints = null,
+        decimal? estimatedHours = null)
     {
-        if (string.IsNullOrWhiteSpace(title)) throw new BusinessRuleException("Task title is required.");
-        if (parentTaskId.HasValue && parentTaskId == Guid.Empty)
-            throw new BusinessRuleException("Invalid parent task ID.");
+        if (storyPoints.HasValue && storyPoints.Value < 0)
+            throw new DomainException("Story points cannot be negative.");
+
+        if (estimatedHours.HasValue && estimatedHours.Value < 0)
+            throw new DomainException("Estimated hours cannot be negative.");
 
         var task = new TaskItem
         {
@@ -59,71 +79,102 @@ public sealed class TaskItem : BaseEntity
             ProjectId = projectId,
             ParentTaskId = parentTaskId,
             CreatedBy = createdBy,
-            Title = title.Trim(),
+            Title = title,
             Description = description,
             Priority = priority,
             DueDate = dueDate,
             CategoryId = categoryId,
             StoryPoints = storyPoints,
-            Status = TaskStatus.Pending,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
+            EstimatedHours = estimatedHours,
+            Status = Ts.TaskStatus.Pending,
+            CreatedAt = DateTime.Now,
+            UpdatedAt = DateTime.Now
         };
 
-        task.AddDomainEvent(new TaskCreatedEvent(task.Id, createdBy, projectId));
+        task.RaiseDomainEvent(new TaskCreatedEvent(task.Id, createdBy, projectId));
         return task;
     }
 
-    public void Update(string title, string? description, Priority priority,
-        DateTime? startDate, DateTime? dueDate, int? storyPoints, Guid? categoryId)
+    // ── Behavior ──────────────────────────────────────────────────────────────
+    public void Update(
+        TaskTitle title,
+        string? description,
+        Priority priority,
+        DateTime? startDate,
+        DateTime? dueDate,
+        int? storyPoints,
+        Guid? categoryId,
+        decimal? estimatedHours)
     {
-        if (string.IsNullOrWhiteSpace(title)) throw new BusinessRuleException("Task title is required.");
-        if (startDate.HasValue && dueDate.HasValue && dueDate < startDate)
-            throw new BusinessRuleException("Due date must be >= start date.");
+        if (startDate.HasValue && dueDate.HasValue && dueDate.Value < startDate.Value)
+            throw new DomainException("Due date must be >= start date.");
 
-        Title = title.Trim();
+        if (storyPoints.HasValue && storyPoints.Value < 0)
+            throw new DomainException("Story points cannot be negative.");
+
+        Title = title;
         Description = description;
         Priority = priority;
         StartDate = startDate;
         DueDate = dueDate;
         StoryPoints = storyPoints;
         CategoryId = categoryId;
-        SetUpdatedAt();
+        EstimatedHours = estimatedHours;
+        Touch();
     }
 
-    public void ChangeStatus(TaskStatus newStatus)
+    public void ChangeStatus(Ts.TaskStatus newStatus)
     {
-        if (newStatus == TaskStatus.Completed)
-            throw new BusinessRuleException("Use Complete() method to complete a task.");
+        if (newStatus == Ts.TaskStatus.Completed)
+            throw new DomainException("Use Complete() method to complete a task.");
 
+        if (Status == Ts.TaskStatus.Cancelled)
+            throw new DomainException("Cannot change status of a cancelled task.");
+
+        var oldStatus = Status;
         Status = newStatus;
-        SetUpdatedAt();
-        AddDomainEvent(new TaskStatusChangedEvent(Id, Status, newStatus));
+        Touch();
+        RaiseDomainEvent(new TaskStatusChangedEvent(Id, oldStatus, newStatus));
     }
 
     public void Complete(Guid completedBy)
     {
-        if (Status == TaskStatus.Completed) throw new BusinessRuleException("Task is already completed.");
-        if (Status == TaskStatus.Cancelled) throw new BusinessRuleException("Cannot complete a cancelled task.");
+        if (Status == Ts.TaskStatus.Completed)
+            throw new DomainException("Task is already completed.");
 
-        Status = TaskStatus.Completed;
+        if (Status == Ts.TaskStatus.Cancelled)
+            throw new DomainException("Cannot complete a cancelled task.");
+
+        var oldStatus = Status;
+        Status = Ts.TaskStatus.Completed;
         CompletedAt = DateTime.UtcNow;
-        SetUpdatedAt();
-        AddDomainEvent(new TaskCompletedEvent(Id, completedBy, ProjectId));
+        Touch();
+
+        RaiseDomainEvent(new TaskStatusChangedEvent(Id, oldStatus, Ts.TaskStatus.Completed));
+        RaiseDomainEvent(new TaskCompletedEvent(Id, completedBy, ProjectId));
     }
 
     public void Assign(Guid assigneeId)
     {
+        var previousAssigneeId = AssigneeId;
         AssigneeId = assigneeId;
-        SetUpdatedAt();
-        AddDomainEvent(new TaskAssignedEvent(Id, assigneeId));
+        Touch();
+        RaiseDomainEvent(new TaskAssignedEvent(Id, assigneeId, previousAssigneeId));
+    }
+
+    public void Unassign()
+    {
+        AssigneeId = null;
+        Touch();
     }
 
     public void UpdateHoursWorked(decimal hours)
     {
-        if (hours < 0) throw new BusinessRuleException("Hours worked cannot be negative.");
+        if (hours < 0)
+            throw new DomainException("Hours worked cannot be negative.");
+
         HoursWorked = hours;
-        SetUpdatedAt();
+        Touch();
     }
 
     public void SetRecurrence(RecurrenceType type, DateOnly nextDate)
@@ -131,9 +182,32 @@ public sealed class TaskItem : BaseEntity
         IsRecurring = true;
         RecurrenceType = type;
         NextRecurrence = nextDate;
-        SetUpdatedAt();
+        Touch();
     }
 
-    public bool IsOverdue() => DueDate.HasValue && DueDate < DateTime.UtcNow
-        && Status is not (TaskStatus.Completed or TaskStatus.Cancelled);
+    public void RemoveRecurrence()
+    {
+        IsRecurring = false;
+        RecurrenceType = null;
+        NextRecurrence = null;
+        Touch();
+    }
+
+    public void Reorder(int newOrder)
+    {
+        Order = newOrder;
+        Touch();
+    }
+
+    // ── Domain Queries ────────────────────────────────────────────────────────
+    public bool IsOverdue() =>
+        DueDate.HasValue &&
+        DueDate.Value < DateTime.Now &&
+        Status is not (Ts.TaskStatus.Completed or Ts.TaskStatus.Cancelled);
+
+    public bool CanBeCompletedBy(Guid userId) =>
+        CreatedBy == userId || AssigneeId == userId;
+
+    public bool CanBeEditedBy(Guid userId) =>
+        CreatedBy == userId || AssigneeId == userId;
 }

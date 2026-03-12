@@ -1,4 +1,4 @@
-using UpTask.Domain.Common;
+﻿using UpTask.Domain.Common;
 
 namespace UpTask.Domain.Entities;
 
@@ -23,8 +23,8 @@ public sealed class UserSettings : BaseEntity
     {
         Id = Guid.NewGuid(),
         UserId = userId,
-        CreatedAt = DateTime.UtcNow,
-        UpdatedAt = DateTime.UtcNow
+        CreatedAt = DateTime.Now,
+        UpdatedAt = DateTime.Now
     };
 
     public void Update(bool notifyEmail, bool notifyPush, string defaultView, string theme, string language)

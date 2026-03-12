@@ -1,5 +1,4 @@
-namespace UpTask.Domain.Common;
-
+﻿namespace UpTask.Domain.Common;
 public interface IDomainEvent
 {
     Guid EventId { get; }

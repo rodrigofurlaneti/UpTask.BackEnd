@@ -1,78 +1,79 @@
 ﻿using MediatR;
 using Microsoft.AspNetCore.Mvc;
-using UpTask.Application.Common.Interfaces;
-using UpTask.Application.Common.Models;
-using UpTask.Application.Features.Projects;
+using UpTask.Application.Features.Projects.Commands;
 using UpTask.Domain.Enums;
+using UpTask.Application.Features.Projects.DTOs;
 
-namespace UpTask.API.Controllers
+namespace UpTask.API.Controllers;
+
+/// <summary>Manages projects, their members, and status transitions.</summary>
+[Route("api/projects")]
+public sealed class ProjectsController(ISender sender) : ApiController(sender)
 {
-    // ── PROJECTS ──────────────────────────────────────────────────────────────────
-    [Route("api/v1/projects")]
-    public sealed class ProjectsController(ISender mediator, ICurrentUserService currentUser)
-        : ApiController(mediator, currentUser)
+    /// <summary>Creates a new project. The current user becomes the owner and first admin.</summary>
+    [HttpPost]
+    [ProducesResponseType(typeof(ProjectDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> Create(CreateProjectCommand command, CancellationToken ct)
     {
-        /// <summary>Get all projects I'm a member of</summary>
-        [HttpGet]
-        [ProducesResponseType(typeof(ApiResponse<IEnumerable<ProjectDto>>), 200)]
-        public async Task<IActionResult> GetMyProjects(CancellationToken ct)
-        {
-            var result = await _mediator.Send(new GetMyProjectsQuery(CurrentUserId), ct);
-            return Ok(ApiResponse<IEnumerable<ProjectDto>>.Ok(result));
-        }
-
-        /// <summary>Get a specific project</summary>
-        [HttpGet("{id:guid}")]
-        [ProducesResponseType(typeof(ApiResponse<ProjectDto>), 200)]
-        [ProducesResponseType(404)]
-        public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
-        {
-            var result = await _mediator.Send(new GetProjectByIdQuery(id, CurrentUserId), ct);
-            return Ok(ApiResponse<ProjectDto>.Ok(result));
-        }
-
-        /// <summary>Create a new project</summary>
-        [HttpPost]
-        [ProducesResponseType(typeof(ApiResponse<ProjectDto>), 201)]
-        public async Task<IActionResult> Create([FromBody] CreateProjectCommand cmd, CancellationToken ct)
-        {
-            var result = await _mediator.Send(cmd with { OwnerId = CurrentUserId }, ct);
-            return CreatedAtAction(nameof(GetById), new { id = result.Id },
-                ApiResponse<ProjectDto>.Ok(result, "Project created."));
-        }
-
-        /// <summary>Update a project</summary>
-        [HttpPut("{id:guid}")]
-        public async Task<IActionResult> Update(Guid id, [FromBody] UpdateProjectCommand cmd, CancellationToken ct)
-        {
-            var result = await _mediator.Send(cmd with { ProjectId = id, RequesterId = CurrentUserId }, ct);
-            return Ok(ApiResponse<ProjectDto>.Ok(result));
-        }
-
-        /// <summary>Change project status</summary>
-        [HttpPatch("{id:guid}/status")]
-        public async Task<IActionResult> ChangeStatus(Guid id, [FromBody] ProjectStatus newStatus, CancellationToken ct)
-        {
-            await _mediator.Send(new ChangeProjectStatusCommand(id, CurrentUserId, newStatus), ct);
-            return Ok(ApiResponse.Ok("Status updated."));
-        }
-
-        /// <summary>Delete a project</summary>
-        [HttpDelete("{id:guid}")]
-        public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
-        {
-            await _mediator.Send(new DeleteProjectCommand(id, CurrentUserId), ct);
-            return Ok(ApiResponse.Ok("Project deleted."));
-        }
-
-        /// <summary>Add a member to the project</summary>
-        [HttpPost("{id:guid}/members")]
-        public async Task<IActionResult> AddMember(Guid id, [FromBody] AddMemberRequest req, CancellationToken ct)
-        {
-            await _mediator.Send(new AddProjectMemberCommand(id, CurrentUserId, req.UserId, req.Role), ct);
-            return Ok(ApiResponse.Ok("Member added."));
-        }
+        var result = await Sender.Send(command, ct);
+        if (!result.IsSuccess) return Ok(result);
+        return StatusCode(StatusCodes.Status201Created, result.Value);
     }
 
-    public record AddMemberRequest(Guid UserId, MemberRole Role);
+    /// <summary>Updates project metadata. Requires Admin role on the project.</summary>
+    [HttpPut("{id:guid}")]
+    [ProducesResponseType(typeof(ProjectDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Update(Guid id, UpdateProjectCommand command, CancellationToken ct)
+    {
+        var result = await Sender.Send(command with { ProjectId = id }, ct);
+        return Ok(result);
+    }
+
+    /// <summary>Deletes a project. Only the owner can delete it.</summary>
+    [HttpDelete("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
+    {
+        var result = await Sender.Send(new DeleteProjectCommand(id), ct);
+        return NoContent(result);
+    }
+
+    /// <summary>Changes the project status (Draft → Active → Paused → Completed/Cancelled).</summary>
+    [HttpPatch("{id:guid}/status")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> ChangeStatus(
+        Guid id, [FromBody] ProjectStatus newStatus, CancellationToken ct)
+    {
+        var result = await Sender.Send(new ChangeProjectStatusCommand(id, newStatus), ct);
+        return NoContent(result);
+    }
+
+    /// <summary>Adds a member to the project. Requires Admin role.</summary>
+    [HttpPost("{id:guid}/members")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> AddMember(Guid id, AddProjectMemberCommand command, CancellationToken ct)
+    {
+        var result = await Sender.Send(command with { ProjectId = id }, ct);
+        return NoContent(result);
+    }
+
+    /// <summary>Removes a member from the project. Cannot remove the owner.</summary>
+    [HttpDelete("{id:guid}/members/{userId:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> RemoveMember(Guid id, Guid userId, CancellationToken ct)
+    {
+        var result = await Sender.Send(new RemoveProjectMemberCommand(id, userId), ct);
+        return NoContent(result);
+    }
 }

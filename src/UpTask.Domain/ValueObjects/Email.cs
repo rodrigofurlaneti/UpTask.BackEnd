@@ -1,23 +1,24 @@
-using System.Text.RegularExpressions;
-using UpTask.Domain.Exceptions;
-
+﻿using UpTask.Domain.Exceptions;
 namespace UpTask.Domain.ValueObjects;
-
 public sealed record Email
 {
     public string Value { get; }
-
-    private static readonly Regex EmailRegex = new(
-        @"^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$",
-        RegexOptions.Compiled | RegexOptions.IgnoreCase);
-
     public Email(string value)
     {
-        if (string.IsNullOrWhiteSpace(value)) throw new BusinessRuleException("Email is required.");
-        if (!EmailRegex.IsMatch(value)) throw new BusinessRuleException($"'{value}' is not a valid email address.");
-        Value = value.ToLowerInvariant().Trim();
-    }
+        if (string.IsNullOrWhiteSpace(value))
+            throw new DomainException("Email cannot be empty.");
+        var normalized = value.Trim().ToLowerInvariant();
+        if (!IsValidFormat(normalized))
+            throw new DomainException($"'{value}' is not a valid email address.");
 
-    public static implicit operator string(Email email) => email.Value;
+        Value = normalized;
+    }
+    private static bool IsValidFormat(string email)
+    {
+        var atIndex = email.IndexOf('@');
+        if (atIndex <= 0) return false;
+        var domain = email[(atIndex + 1)..];
+        return domain.Contains('.') && !domain.StartsWith('.') && !domain.EndsWith('.');
+    }
     public override string ToString() => Value;
 }

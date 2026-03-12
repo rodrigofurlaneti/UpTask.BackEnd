@@ -1,172 +1,217 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
+using UpTask.Domain.Common;
 using UpTask.Domain.Entities;
 using UpTask.Domain.Interfaces;
+using UpTask.Infrastructure.Persistence;
+using TaskStatus = UpTask.Domain.Enums.TaskStatus;
 
 namespace UpTask.Infrastructure.Persistence.Repositories;
 
-// ── Generic ───────────────────────────────────────────────────────────────────
-public abstract class Repository<T>(AppDbContext db) : IRepository<T> where T : class
+// ── Generic Repository ────────────────────────────────────────────────────────
+internal abstract class Repository<T>(AppDbContext context) : IRepository<T>
+    where T : UpTask.Domain.Common.Entity
 {
-    protected readonly AppDbContext _db = db;
-    protected DbSet<T> DbSet => _db.Set<T>();
+    protected readonly AppDbContext Context = context;
+    protected readonly DbSet<T> DbSet = context.Set<T>();
 
-    public async Task<T?> GetByIdAsync(Guid id, CancellationToken ct = default)
-        => await DbSet.FindAsync([id], ct);
+    public virtual async Task<T?> GetByIdAsync(Guid id, CancellationToken ct = default) =>
+        await DbSet.FindAsync([id], ct);
 
-    public async Task<IEnumerable<T>> GetAllAsync(CancellationToken ct = default)
-        => await DbSet.ToListAsync(ct);
+    public virtual async Task<IEnumerable<T>> GetAllAsync(CancellationToken ct = default) =>
+        await DbSet.ToListAsync(ct);
 
-    public async Task AddAsync(T entity, CancellationToken ct = default)
-        => await DbSet.AddAsync(entity, ct);
+    public virtual async Task AddAsync(T entity, CancellationToken ct = default) =>
+        await DbSet.AddAsync(entity, ct);
 
-    public void Update(T entity) => DbSet.Update(entity);
-    public void Remove(T entity) => DbSet.Remove(entity);
+    public virtual void Update(T entity) => DbSet.Update(entity);
+
+    public virtual void Remove(T entity) => DbSet.Remove(entity);
 }
 
-// ── User ──────────────────────────────────────────────────────────────────────
-public sealed class UserRepository(AppDbContext db) : Repository<User>(db), IUserRepository
+// ── Unit of Work ──────────────────────────────────────────────────────────────
+internal sealed class UnitOfWork(AppDbContext context) : IUnitOfWork
 {
-    public async Task<User?> GetByEmailAsync(string email, CancellationToken ct = default)
-        => await _db.Users.FirstOrDefaultAsync(u => u.Email.Value == email.ToLowerInvariant(), ct);
-
-    public async Task<bool> EmailExistsAsync(string email, CancellationToken ct = default)
-        => await _db.Users.AnyAsync(u => u.Email.Value == email.ToLowerInvariant(), ct);
-
-    public async Task<User?> GetWithSettingsAsync(Guid id, CancellationToken ct = default)
-        => await _db.Users.Include(u => u.Settings).FirstOrDefaultAsync(u => u.Id == id, ct);
+    public Task<int> SaveChangesAsync(CancellationToken ct = default) =>
+        context.SaveChangesAsync(ct);
 }
 
-// ── Project ───────────────────────────────────────────────────────────────────
-public sealed class ProjectRepository(AppDbContext db) : Repository<Project>(db), IProjectRepository
+// ── User Repository ───────────────────────────────────────────────────────────
+internal sealed class UserRepository(AppDbContext context)
+    : Repository<User>(context), IUserRepository
 {
-    public async Task<IEnumerable<Project>> GetByOwnerAsync(Guid ownerId, CancellationToken ct = default)
-        => await _db.Projects.Where(p => p.OwnerId == ownerId).ToListAsync(ct);
+    public async Task<User?> GetByEmailAsync(string email, CancellationToken ct = default) =>
+        await DbSet.FirstOrDefaultAsync(u => u.Email.Value == email.ToLowerInvariant(), ct);
 
-    public async Task<IEnumerable<Project>> GetByMemberAsync(Guid userId, CancellationToken ct = default)
-        => await _db.Projects
+    public async Task<bool> EmailExistsAsync(string email, CancellationToken ct = default) =>
+        await DbSet.AnyAsync(u => u.Email.Value == email.ToLowerInvariant(), ct);
+
+    public async Task<User?> GetWithSettingsAsync(Guid id, CancellationToken ct = default) =>
+        await DbSet.FirstOrDefaultAsync(u => u.Id == id, ct);
+}
+
+// ── Project Repository ────────────────────────────────────────────────────────
+internal sealed class ProjectRepository(AppDbContext context)
+    : Repository<Project>(context), IProjectRepository
+{
+    public async Task<IEnumerable<Project>> GetByOwnerAsync(Guid ownerId, CancellationToken ct = default) =>
+        await DbSet
+            .Where(p => p.OwnerId == ownerId)
+            .OrderByDescending(p => p.CreatedAt)
+            .ToListAsync(ct);
+
+    public async Task<IEnumerable<Project>> GetByMemberAsync(Guid userId, CancellationToken ct = default) =>
+        await DbSet
             .Include(p => p.Members)
             .Where(p => p.Members.Any(m => m.UserId == userId))
+            .OrderByDescending(p => p.UpdatedAt)
             .ToListAsync(ct);
 
-    public async Task<Project?> GetWithMembersAsync(Guid id, CancellationToken ct = default)
-        => await _db.Projects.Include(p => p.Members).FirstOrDefaultAsync(p => p.Id == id, ct);
+    public async Task<Project?> GetWithMembersAsync(Guid id, CancellationToken ct = default) =>
+        await DbSet
+            .Include(p => p.Members)
+            .FirstOrDefaultAsync(p => p.Id == id, ct);
 
-    public async Task<Project?> GetWithTasksAsync(Guid id, CancellationToken ct = default)
-        => await _db.Projects.Include(p => p.Tasks).FirstOrDefaultAsync(p => p.Id == id, ct);
+    public async Task<Project?> GetWithTasksAsync(Guid id, CancellationToken ct = default) =>
+        await DbSet
+            .Include(p => p.Tasks)
+            .Include(p => p.Members)
+            .FirstOrDefaultAsync(p => p.Id == id, ct);
 }
 
-// ── Task ──────────────────────────────────────────────────────────────────────
-public sealed class TaskRepository(AppDbContext db) : Repository<TaskItem>(db), ITaskRepository
+// ── Task Repository ───────────────────────────────────────────────────────────
+internal sealed class TaskRepository(AppDbContext context)
+    : Repository<TaskItem>(context), ITaskRepository
 {
-    public async Task<IEnumerable<TaskItem>> GetByProjectAsync(Guid projectId, CancellationToken ct = default)
-        => await _db.Tasks
-            .Include(t => t.Assignee)
+    public async Task<IEnumerable<TaskItem>> GetByProjectAsync(Guid projectId, CancellationToken ct = default) =>
+        await DbSet
             .Where(t => t.ProjectId == projectId && t.ParentTaskId == null)
-            .OrderBy(t => t.Order).ToListAsync(ct);
-
-    public async Task<IEnumerable<TaskItem>> GetByAssigneeAsync(Guid userId, CancellationToken ct = default)
-        => await _db.Tasks
             .Include(t => t.Assignee)
-            .Include(t => t.Project)
-            .Where(t => (t.AssigneeId == userId || t.CreatedBy == userId) && t.Status != Domain.Enums.TaskStatus.Cancelled)
-            .OrderBy(t => t.DueDate).ToListAsync(ct);
-
-    public async Task<IEnumerable<TaskItem>> GetOverdueAsync(CancellationToken ct = default)
-        => await _db.Tasks
-            .Include(t => t.Assignee)
-            .Where(t => t.DueDate < DateTime.UtcNow
-                     && t.Status != Domain.Enums.TaskStatus.Completed
-                     && t.Status != Domain.Enums.TaskStatus.Cancelled)
+            .OrderBy(t => t.Order)
+            .ThenByDescending(t => t.CreatedAt)
             .ToListAsync(ct);
 
-    public async Task<IEnumerable<TaskItem>> GetSubTasksAsync(Guid parentId, CancellationToken ct = default)
-        => await _db.Tasks.Where(t => t.ParentTaskId == parentId).ToListAsync(ct);
+    public async Task<IEnumerable<TaskItem>> GetByAssigneeAsync(Guid userId, CancellationToken ct = default) =>
+        await DbSet
+            .Where(t => t.AssigneeId == userId)
+            .Include(t => t.Project)
+            .OrderByDescending(t => t.DueDate)
+            .ToListAsync(ct);
 
-    public async Task<(int Total, int Completed)> GetProjectProgressAsync(Guid projectId, CancellationToken ct = default)
+    public async Task<IEnumerable<TaskItem>> GetOverdueAsync(CancellationToken ct = default) =>
+        await DbSet
+            .Where(t => t.DueDate < DateTime.UtcNow
+                     && t.Status != TaskStatus.Completed
+                     && t.Status != TaskStatus.Cancelled)
+            .Include(t => t.Assignee)
+            .ToListAsync(ct);
+
+    public async Task<IEnumerable<TaskItem>> GetSubTasksAsync(Guid parentId, CancellationToken ct = default) =>
+        await DbSet
+            .Where(t => t.ParentTaskId == parentId)
+            .Include(t => t.Assignee)
+            .OrderBy(t => t.Order)
+            .ToListAsync(ct);
+
+    public async Task<(int Total, int Completed)> GetProjectProgressAsync(
+        Guid projectId, CancellationToken ct = default)
     {
-        var counts = await _db.Tasks
+        var stats = await DbSet
             .Where(t => t.ProjectId == projectId && t.ParentTaskId == null)
-            .GroupBy(t => 1)
-            .Select(g => new { Total = g.Count(), Completed = g.Count(t => t.Status == Domain.Enums.TaskStatus.Completed) })
+            .GroupBy(_ => true)
+            .Select(g => new
+            {
+                Total = g.Count(),
+                Completed = g.Count(t => t.Status == TaskStatus.Completed)
+            })
             .FirstOrDefaultAsync(ct);
-        return (counts?.Total ?? 0, counts?.Completed ?? 0);
+
+        return stats is null ? (0, 0) : (stats.Total, stats.Completed);
     }
 
-    public async Task<TaskItem?> GetWithDetailsAsync(Guid id, CancellationToken ct = default)
-        => await _db.Tasks
+    public async Task<TaskItem?> GetWithDetailsAsync(Guid id, CancellationToken ct = default) =>
+        await DbSet
             .Include(t => t.Assignee)
             .Include(t => t.Project)
-            .Include(t => t.Checklists).ThenInclude(c => c.Items)
-            .Include(t => t.Comments).ThenInclude(c => c.Author)
-            .Include(t => t.Tags).ThenInclude(tt => tt.Tag)
+            .Include(t => t.Checklists)
+                .ThenInclude(cl => cl.Items)
+            .Include(t => t.Tags)
+                .ThenInclude(tt => tt.Tag)
             .FirstOrDefaultAsync(t => t.Id == id, ct);
 }
 
-// ── Category ──────────────────────────────────────────────────────────────────
-public sealed class CategoryRepository(AppDbContext db) : Repository<Category>(db), ICategoryRepository
+// ── Category Repository ───────────────────────────────────────────────────────
+internal sealed class CategoryRepository(AppDbContext context)
+    : Repository<Category>(context), ICategoryRepository
 {
-    public async Task<IEnumerable<Category>> GetGlobalAsync(CancellationToken ct = default)
-        => await _db.Categories.Where(c => c.UserId == null).ToListAsync(ct);
+    public async Task<IEnumerable<Category>> GetGlobalAsync(CancellationToken ct = default) =>
+        await DbSet.Where(c => c.UserId == null).ToListAsync(ct);
 
-    public async Task<IEnumerable<Category>> GetByUserAsync(Guid userId, CancellationToken ct = default)
-        => await _db.Categories.Where(c => c.UserId == userId).ToListAsync(ct);
+    public async Task<IEnumerable<Category>> GetByUserAsync(Guid userId, CancellationToken ct = default) =>
+        await DbSet.Where(c => c.UserId == userId || c.UserId == null).ToListAsync(ct);
 }
 
-// ── Tag ───────────────────────────────────────────────────────────────────────
-public sealed class TagRepository(AppDbContext db) : Repository<Tag>(db), ITagRepository
+// ── Tag Repository ────────────────────────────────────────────────────────────
+internal sealed class TagRepository(AppDbContext context)
+    : Repository<Tag>(context), ITagRepository
 {
-    public async Task<IEnumerable<Tag>> GetByUserAsync(Guid userId, CancellationToken ct = default)
-        => await _db.Tags.Where(t => t.UserId == userId).OrderBy(t => t.Name).ToListAsync(ct);
+    public async Task<IEnumerable<Tag>> GetByUserAsync(Guid userId, CancellationToken ct = default) =>
+        await DbSet.Where(t => t.UserId == userId).ToListAsync(ct);
 
-    public async Task<bool> ExistsAsync(Guid userId, string name, CancellationToken ct = default)
-        => await _db.Tags.AnyAsync(t => t.UserId == userId && t.Name == name.ToLowerInvariant(), ct);
+    public async Task<bool> ExistsAsync(Guid userId, string name, CancellationToken ct = default) =>
+        await DbSet.AnyAsync(t => t.UserId == userId && t.Name == name.ToLowerInvariant(), ct);
 }
 
-// ── Comment ───────────────────────────────────────────────────────────────────
-public sealed class CommentRepository(AppDbContext db) : Repository<Comment>(db), ICommentRepository
+// ── Comment Repository ────────────────────────────────────────────────────────
+internal sealed class CommentRepository(AppDbContext context)
+    : Repository<Comment>(context), ICommentRepository
 {
-    public async Task<IEnumerable<Comment>> GetByTaskAsync(Guid taskId, CancellationToken ct = default)
-        => await _db.Comments
+    public async Task<IEnumerable<Comment>> GetByTaskAsync(Guid taskId, CancellationToken ct = default) =>
+        await DbSet
             .Include(c => c.Author)
-            .Where(c => c.TaskId == taskId && !c.IsDeleted)
-            .OrderBy(c => c.CreatedAt).ToListAsync(ct);
+            .Where(c => c.TaskId == taskId)
+            .OrderBy(c => c.CreatedAt)
+            .ToListAsync(ct);
 }
 
-// ── TimeEntry ─────────────────────────────────────────────────────────────────
-public sealed class TimeEntryRepository(AppDbContext db) : Repository<TimeEntry>(db), ITimeEntryRepository
+// ── TimeEntry Repository ──────────────────────────────────────────────────────
+internal sealed class TimeEntryRepository(AppDbContext context)
+    : Repository<TimeEntry>(context), ITimeEntryRepository
 {
-    public async Task<IEnumerable<TimeEntry>> GetByTaskAsync(Guid taskId, CancellationToken ct = default)
-        => await _db.TimeEntries
-            .Include(e => e.User)
-            .Where(e => e.TaskId == taskId)
-            .OrderByDescending(e => e.StartTime).ToListAsync(ct);
+    public async Task<IEnumerable<TimeEntry>> GetByTaskAsync(Guid taskId, CancellationToken ct = default) =>
+        await DbSet.Where(te => te.TaskId == taskId).OrderByDescending(te => te.StartTime).ToListAsync(ct);
 
-    public async Task<IEnumerable<TimeEntry>> GetByUserAsync(Guid userId, DateTime from, DateTime to, CancellationToken ct = default)
-        => await _db.TimeEntries
-            .Include(e => e.Task)
-            .Where(e => e.UserId == userId && e.StartTime >= from && e.StartTime <= to)
-            .OrderByDescending(e => e.StartTime).ToListAsync(ct);
+    public async Task<IEnumerable<TimeEntry>> GetByUserAsync(
+        Guid userId, DateTime from, DateTime to, CancellationToken ct = default) =>
+        await DbSet
+            .Where(te => te.UserId == userId && te.StartTime >= from && te.EndTime <= to)
+            .OrderByDescending(te => te.StartTime)
+            .ToListAsync(ct);
 
     public async Task<decimal> GetTotalHoursByTaskAsync(Guid taskId, CancellationToken ct = default)
     {
-        var totalMin = await _db.TimeEntries
-            .Where(e => e.TaskId == taskId)
-            .SumAsync(e => e.DurationMinutes, ct);
-        return Math.Round((decimal)totalMin / 60, 2);
+        var totalMinutes = await DbSet
+            .Where(te => te.TaskId == taskId)
+            .SumAsync(te => te.DurationMinutes, ct);
+
+        return Math.Round(totalMinutes / 60m, 2);
     }
 }
 
-// ── Notification ──────────────────────────────────────────────────────────────
-public sealed class NotificationRepository(AppDbContext db) : Repository<Notification>(db), INotificationRepository
+// ── Notification Repository ───────────────────────────────────────────────────
+internal sealed class NotificationRepository(AppDbContext context)
+    : Repository<Notification>(context), INotificationRepository
 {
-    public async Task<IEnumerable<Notification>> GetUnreadByUserAsync(Guid userId, CancellationToken ct = default)
-        => await _db.Notifications
-            .Where(n => n.UserId == userId && !n.IsRead)
-            .OrderByDescending(n => n.CreatedAt).ToListAsync(ct);
+    public async Task<IEnumerable<Notification>> GetUnreadByUserAsync(Guid userId, CancellationToken ct = default) =>
+        await DbSet
+            .Where(n => n.UserId == userId && !n.IsRead && (n.ExpiresAt == null || n.ExpiresAt > DateTime.UtcNow))
+            .OrderByDescending(n => n.CreatedAt)
+            .ToListAsync(ct);
 
-    public async Task MarkAllAsReadAsync(Guid userId, CancellationToken ct = default)
-        => await _db.Notifications
+    public async Task MarkAllAsReadAsync(Guid userId, CancellationToken ct = default) =>
+        await DbSet
             .Where(n => n.UserId == userId && !n.IsRead)
-            .ExecuteUpdateAsync(s => s.SetProperty(n => n.IsRead, true)
-                .SetProperty(n => n.ReadAt, DateTime.UtcNow), ct);
+            .ExecuteUpdateAsync(
+                s => s.SetProperty(n => n.IsRead, true)
+                       .SetProperty(n => n.ReadAt, DateTime.UtcNow),
+                ct);
 }

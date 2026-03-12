@@ -2,8 +2,9 @@
 using Microsoft.AspNetCore.Mvc;
 using UpTask.Application.Common.Interfaces;
 using UpTask.Application.Common.Models;
-using UpTask.Application.Features.Categories;
-
+using UpTask.Application.Features.Categories.Commands;
+using UpTask.Application.Features.Categories.Queries;
+using UpTask.Application.Features.Categories.DTOs;
 namespace UpTask.API.Controllers
 {
     // ── CATEGORIES ────────────────────────────────────────────────────────────────

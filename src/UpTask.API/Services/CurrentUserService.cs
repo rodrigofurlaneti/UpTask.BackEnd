@@ -4,23 +4,25 @@ using UpTask.Application.Common.Interfaces;
 
 namespace UpTask.API.Services;
 
-public sealed class CurrentUserService(IHttpContextAccessor httpContextAccessor) : ICurrentUserService
+/// <summary>
+/// Resolves the authenticated user's identity from the HttpContext Claims Principal.
+/// Registered as Scoped — safe to inject into Application handlers.
+/// </summary>
+internal sealed class CurrentUserService(IHttpContextAccessor httpContextAccessor) : ICurrentUserService
 {
-    private ClaimsPrincipal? User => httpContextAccessor.HttpContext?.User;
+    private readonly ClaimsPrincipal? _user = httpContextAccessor.HttpContext?.User;
 
-    public Guid? UserId
-    {
-        get
-        {
-            var value = User?.FindFirstValue(JwtRegisteredClaimNames.Sub)
-                     ?? User?.FindFirstValue(ClaimTypes.NameIdentifier);
-            return value is not null && Guid.TryParse(value, out var id) ? id : null;
-        }
-    }
+    public Guid UserId =>
+        Guid.TryParse(_user?.FindFirstValue(JwtRegisteredClaimNames.Sub), out var id)
+            ? id
+            : Guid.Empty;
 
-    public string? Email => User?.FindFirstValue(JwtRegisteredClaimNames.Email)
-                         ?? User?.FindFirstValue(ClaimTypes.Email);
+    public string Email =>
+        _user?.FindFirstValue(JwtRegisteredClaimNames.Email) ?? string.Empty;
 
-    public string? Role => User?.FindFirstValue(ClaimTypes.Role);
-    public bool IsAuthenticated => User?.Identity?.IsAuthenticated ?? false;
+    public string Role =>
+        _user?.FindFirstValue(ClaimTypes.Role) ?? string.Empty;
+
+    public bool IsAuthenticated =>
+        _user?.Identity?.IsAuthenticated ?? false;
 }
