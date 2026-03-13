@@ -1,4 +1,4 @@
-# UpTask — API v2 (Reengineering)
+﻿# UpTask — API v2 (Reengineering)
 
 > **Runtime:** .NET 9 · **Architecture:** Clean Architecture + DDD · **Pattern:** CQRS via MediatR
 
@@ -107,6 +107,7 @@ dotnet test tests/UpTask.BDD.Tests
 # Com cobertura
 dotnet test --collect:"XPlat Code Coverage"
 ```
+
 
 ### Criar nova Migration
 
