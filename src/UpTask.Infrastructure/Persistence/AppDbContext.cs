@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
 using UpTask.Domain.Common;
 using UpTask.Domain.Entities;
@@ -36,16 +36,12 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, IPublis
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
-        // Collect all entities with pending domain events before saving
         var entitiesWithEvents = ChangeTracker
             .Entries<Entity>()
             .Select(e => e.Entity)
             .Where(e => e.DomainEvents.Count > 0)
             .ToList();
-
         var result = await base.SaveChangesAsync(cancellationToken);
-
-        // Dispatch domain events AFTER successful persistence
         if (publisher is not null)
         {
             foreach (var entity in entitiesWithEvents)
@@ -57,7 +53,6 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, IPublis
                     await publisher.Publish(domainEvent, cancellationToken);
             }
         }
-
         return result;
     }
 }
