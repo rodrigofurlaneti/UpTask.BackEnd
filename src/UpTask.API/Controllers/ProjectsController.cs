@@ -1,8 +1,9 @@
 ﻿using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using UpTask.Application.Features.Projects.Commands;
-using UpTask.Domain.Enums;
 using UpTask.Application.Features.Projects.DTOs;
+using UpTask.Application.Features.Projects.Queries;
+using UpTask.Domain.Enums;
 
 namespace UpTask.API.Controllers;
 
@@ -10,6 +11,15 @@ namespace UpTask.API.Controllers;
 [Route("api/projects")]
 public sealed class ProjectsController(ISender sender) : ApiController(sender)
 {
+    /// <summary>Lists all projects where the current user is a member.</summary>
+    [HttpGet]
+    [ProducesResponseType(typeof(IEnumerable<ProjectDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetAll(CancellationToken ct)
+    {
+        var result = await Sender.Send(new GetMyProjectsQuery(), ct);
+        return Ok(new { data = result });
+    }
+
     /// <summary>Creates a new project. The current user becomes the owner and first admin.</summary>
     [HttpPost]
     [ProducesResponseType(typeof(ProjectDto), StatusCodes.Status201Created)]

@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using UpTask.API.Middleware;
 using UpTask.API.Services;
@@ -6,27 +6,37 @@ using UpTask.Application;
 using UpTask.Application.Common.Interfaces;
 using UpTask.Infrastructure;
 using UpTask.Infrastructure.Persistence;
+using System.IdentityModel.Tokens.Jwt;
+using System.Text.Json.Serialization;
+
+// 1. LIMPEZA DE MAPEAMENTO (Deve ser a primeira linha)
+JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 
 var builder = WebApplication.CreateBuilder(args);
 
 // ── Services ──────────────────────────────────────────────────────────────────
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
-
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 
-builder.Services.AddControllers();
+// Adiciona suporte a Enums como String no JSON
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    });
+
 builder.Services.AddEndpointsApiExplorer();
 
-// ── Swagger / OpenAPI ─────────────────────────────────────────────────────────
+// ── Swagger ───────────────────────────────────────────────────────────────────
 builder.Services.AddSwaggerGen(opts =>
 {
     opts.SwaggerDoc("v1", new OpenApiInfo
     {
         Title = "UpTask API",
         Version = "v1",
-        Description = "Task & project management API — built with Clean Architecture + CQRS"
+        Description = "Task & project management API"
     });
 
     opts.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
@@ -36,7 +46,7 @@ builder.Services.AddSwaggerGen(opts =>
         Scheme = "Bearer",
         BearerFormat = "JWT",
         In = ParameterLocation.Header,
-        Description = "Enter 'Bearer {token}'"
+        Description = "Insira o token JWT."
     });
 
     opts.AddSecurityRequirement(new OpenApiSecurityRequirement
@@ -44,13 +54,9 @@ builder.Services.AddSwaggerGen(opts =>
         {
             new OpenApiSecurityScheme
             {
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
+                Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
             },
-            []
+            Array.Empty<string>()
         }
     });
 });
@@ -61,19 +67,17 @@ builder.Services.AddCors(opts =>
     opts.AddPolicy("AllowFrontend", policy =>
     {
         policy
-            .WithOrigins(builder.Configuration.GetSection("AllowedOrigins").Get<string[]>() ?? [])
+            .WithOrigins("http://localhost:3000", "http://localhost:5173")
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials();
     });
 });
 
-builder.Services.AddAuthorization();
-
 // ── Build ─────────────────────────────────────────────────────────────────────
 var app = builder.Build();
 
-// ── Auto-migrate on startup (Development only) ────────────────────────────────
+// ── Banco de Dados ────────────────────────────────────────────────────────────
 if (app.Environment.IsDevelopment())
 {
     using var scope = app.Services.CreateScope();
@@ -81,23 +85,29 @@ if (app.Environment.IsDevelopment())
     await db.Database.MigrateAsync();
 }
 
-// ── Middleware pipeline ───────────────────────────────────────────────────────
+// ── Pipeline de Middleware (A ORDEM AQUI É CRÍTICA) ───────────────────────────
+
+// 1. Tratamento de erro global primeiro
 app.UseMiddleware<GlobalExceptionMiddleware>();
 
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+// 2. Swagger
+app.UseSwagger();
+app.UseSwaggerUI();
 
+// 3. Segurança e Roteamento
 app.UseHttpsRedirection();
+app.UseRouting();
+
+// 4. CORS DEVE VIR ANTES DA AUTENTICAÇÃO
 app.UseCors("AllowFrontend");
+
+// 5. Segurança de Acesso
 app.UseAuthentication();
 app.UseAuthorization();
 
+// 6. Endpoints
 app.MapControllers();
 
 await app.RunAsync();
 
-// Make the implicit Program class public for integration tests
 public partial class Program { }
