@@ -12,15 +12,15 @@ using UpTask.Infrastructure.Persistence;
 namespace UpTask.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260310125353_Init")]
-    partial class Init
+    [Migration("20260313004600_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "9.0.0")
+                .HasAnnotation("ProductVersion", "9.0.14")
                 .HasAnnotation("Relational:MaxIdentifierLength", 64);
 
             MySqlModelBuilderExtensions.AutoIncrementColumns(modelBuilder);
@@ -33,19 +33,19 @@ namespace UpTask.Infrastructure.Migrations
 
                     b.Property<string>("Color")
                         .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(7)
-                        .HasColumnType("varchar(7)")
-                        .HasDefaultValue("#607D8B");
+                        .HasMaxLength(10)
+                        .HasColumnType("varchar(10)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
 
                     b.Property<string>("Description")
-                        .HasColumnType("longtext");
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
 
                     b.Property<string>("Icon")
-                        .HasColumnType("longtext");
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -63,7 +63,7 @@ namespace UpTask.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("categories", (string)null);
+                    b.ToTable("Categories", (string)null);
                 });
 
             modelBuilder.Entity("UpTask.Domain.Entities.Checklist", b =>
@@ -83,8 +83,8 @@ namespace UpTask.Infrastructure.Migrations
 
                     b.Property<string>("Title")
                         .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("varchar(150)");
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime(6)");
@@ -93,7 +93,7 @@ namespace UpTask.Infrastructure.Migrations
 
                     b.HasIndex("TaskId");
 
-                    b.ToTable("checklists", (string)null);
+                    b.ToTable("Checklists", (string)null);
                 });
 
             modelBuilder.Entity("UpTask.Domain.Entities.ChecklistItem", b =>
@@ -116,8 +116,8 @@ namespace UpTask.Infrastructure.Migrations
 
                     b.Property<string>("Description")
                         .IsRequired()
-                        .HasMaxLength(300)
-                        .HasColumnType("varchar(300)");
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
 
                     b.Property<bool>("IsCompleted")
                         .HasColumnType("tinyint(1)");
@@ -132,7 +132,7 @@ namespace UpTask.Infrastructure.Migrations
 
                     b.HasIndex("ChecklistId");
 
-                    b.ToTable("checklist_items", (string)null);
+                    b.ToTable("ChecklistItems", (string)null);
                 });
 
             modelBuilder.Entity("UpTask.Domain.Entities.Comment", b =>
@@ -143,7 +143,8 @@ namespace UpTask.Infrastructure.Migrations
 
                     b.Property<string>("Content")
                         .IsRequired()
-                        .HasColumnType("longtext");
+                        .HasMaxLength(5000)
+                        .HasColumnType("varchar(5000)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
@@ -175,7 +176,7 @@ namespace UpTask.Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("comments", (string)null);
+                    b.ToTable("Comments", (string)null);
                 });
 
             modelBuilder.Entity("UpTask.Domain.Entities.Notification", b =>
@@ -194,7 +195,8 @@ namespace UpTask.Infrastructure.Migrations
                         .HasColumnType("tinyint(1)");
 
                     b.Property<string>("Message")
-                        .HasColumnType("longtext");
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
 
                     b.Property<DateTime?>("ReadAt")
                         .HasColumnType("datetime(6)");
@@ -203,18 +205,16 @@ namespace UpTask.Infrastructure.Migrations
                         .HasColumnType("char(36)");
 
                     b.Property<string>("ReferenceType")
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)");
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
 
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("varchar(200)");
 
-                    b.Property<string>("Type")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("varchar(30)");
+                    b.Property<int>("Type")
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime(6)");
@@ -226,7 +226,7 @@ namespace UpTask.Infrastructure.Migrations
 
                     b.HasIndex("UserId", "IsRead");
 
-                    b.ToTable("notifications", (string)null);
+                    b.ToTable("Notifications", (string)null);
                 });
 
             modelBuilder.Entity("UpTask.Domain.Entities.Project", b =>
@@ -243,19 +243,19 @@ namespace UpTask.Infrastructure.Migrations
 
                     b.Property<string>("Color")
                         .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(7)
-                        .HasColumnType("varchar(7)")
-                        .HasDefaultValue("#1976D2");
+                        .HasMaxLength(10)
+                        .HasColumnType("varchar(10)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
 
                     b.Property<string>("Description")
-                        .HasColumnType("longtext");
+                        .HasMaxLength(2000)
+                        .HasColumnType("varchar(2000)");
 
                     b.Property<string>("Icon")
-                        .HasColumnType("longtext");
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -268,28 +268,26 @@ namespace UpTask.Infrastructure.Migrations
                     b.Property<DateOnly?>("PlannedEndDate")
                         .HasColumnType("date");
 
-                    b.Property<string>("Priority")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)");
+                    b.Property<int>("Priority")
+                        .HasColumnType("int");
 
                     b.Property<int>("Progress")
-                        .HasColumnType("int");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
 
                     b.Property<DateOnly?>("StartDate")
                         .HasColumnType("date");
 
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)");
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
 
-                    b.ToTable("projects", (string)null);
+                    b.ToTable("Projects", (string)null);
                 });
 
             modelBuilder.Entity("UpTask.Domain.Entities.ProjectMember", b =>
@@ -310,10 +308,8 @@ namespace UpTask.Infrastructure.Migrations
                     b.Property<Guid>("ProjectId")
                         .HasColumnType("char(36)");
 
-                    b.Property<string>("Role")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)");
+                    b.Property<int>("Role")
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime(6)");
@@ -328,7 +324,7 @@ namespace UpTask.Infrastructure.Migrations
                     b.HasIndex("ProjectId", "UserId")
                         .IsUnique();
 
-                    b.ToTable("project_members", (string)null);
+                    b.ToTable("ProjectMembers", (string)null);
                 });
 
             modelBuilder.Entity("UpTask.Domain.Entities.Tag", b =>
@@ -339,15 +335,16 @@ namespace UpTask.Infrastructure.Migrations
 
                     b.Property<string>("Color")
                         .IsRequired()
-                        .HasColumnType("longtext");
+                        .HasMaxLength(10)
+                        .HasColumnType("varchar(10)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasMaxLength(60)
-                        .HasColumnType("varchar(60)");
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime(6)");
@@ -360,7 +357,7 @@ namespace UpTask.Infrastructure.Migrations
                     b.HasIndex("UserId", "Name")
                         .IsUnique();
 
-                    b.ToTable("tags", (string)null);
+                    b.ToTable("Tags", (string)null);
                 });
 
             modelBuilder.Entity("UpTask.Domain.Entities.TaskDependency", b =>
@@ -378,25 +375,18 @@ namespace UpTask.Infrastructure.Migrations
                     b.Property<Guid>("TaskId")
                         .HasColumnType("char(36)");
 
-                    b.Property<Guid?>("TaskItemId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<string>("Type")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)");
+                    b.Property<int>("Type")
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TaskItemId");
-
                     b.HasIndex("TaskId", "DependsOnId")
                         .IsUnique();
 
-                    b.ToTable("task_dependencies", (string)null);
+                    b.ToTable("TaskDependencies", (string)null);
                 });
 
             modelBuilder.Entity("UpTask.Domain.Entities.TaskItem", b =>
@@ -421,19 +411,20 @@ namespace UpTask.Infrastructure.Migrations
                         .HasColumnType("char(36)");
 
                     b.Property<string>("Description")
-                        .HasColumnType("longtext");
+                        .HasMaxLength(5000)
+                        .HasColumnType("varchar(5000)");
 
                     b.Property<DateTime?>("DueDate")
                         .HasColumnType("datetime(6)");
 
                     b.Property<decimal?>("EstimatedHours")
-                        .HasPrecision(6, 2)
-                        .HasColumnType("decimal(6,2)");
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
 
                     b.Property<decimal>("HoursWorked")
                         .ValueGeneratedOnAdd()
-                        .HasPrecision(6, 2)
-                        .HasColumnType("decimal(6,2)")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)")
                         .HasDefaultValue(0m);
 
                     b.Property<bool>("IsRecurring")
@@ -448,10 +439,8 @@ namespace UpTask.Infrastructure.Migrations
                     b.Property<Guid?>("ParentTaskId")
                         .HasColumnType("char(36)");
 
-                    b.Property<string>("Priority")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)");
+                    b.Property<int>("Priority")
+                        .HasColumnType("int");
 
                     b.Property<Guid?>("ProjectId")
                         .HasColumnType("char(36)");
@@ -462,10 +451,8 @@ namespace UpTask.Infrastructure.Migrations
                     b.Property<DateTime?>("StartDate")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)");
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
 
                     b.Property<int?>("StoryPoints")
                         .HasColumnType("int");
@@ -486,7 +473,7 @@ namespace UpTask.Infrastructure.Migrations
 
                     b.HasIndex("ProjectId");
 
-                    b.ToTable("tasks", (string)null);
+                    b.ToTable("Tasks", (string)null);
                 });
 
             modelBuilder.Entity("UpTask.Domain.Entities.TaskTag", b =>
@@ -501,7 +488,7 @@ namespace UpTask.Infrastructure.Migrations
 
                     b.HasIndex("TagId");
 
-                    b.ToTable("task_tags", (string)null);
+                    b.ToTable("TaskTags", (string)null);
                 });
 
             modelBuilder.Entity("UpTask.Domain.Entities.TimeEntry", b =>
@@ -514,8 +501,8 @@ namespace UpTask.Infrastructure.Migrations
                         .HasColumnType("datetime(6)");
 
                     b.Property<string>("Description")
-                        .HasMaxLength(300)
-                        .HasColumnType("varchar(300)");
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
 
                     b.Property<int>("DurationMinutes")
                         .HasColumnType("int");
@@ -541,7 +528,7 @@ namespace UpTask.Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("time_entries", (string)null);
+                    b.ToTable("TimeEntries", (string)null);
                 });
 
             modelBuilder.Entity("UpTask.Domain.Entities.User", b =>
@@ -551,10 +538,16 @@ namespace UpTask.Infrastructure.Migrations
                         .HasColumnType("char(36)");
 
                     b.Property<string>("AvatarUrl")
-                        .HasColumnType("longtext");
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(320)
+                        .HasColumnType("varchar(320)");
 
                     b.Property<DateTime?>("LastLoginAt")
                         .HasColumnType("datetime(6)");
@@ -566,33 +559,31 @@ namespace UpTask.Infrastructure.Migrations
 
                     b.Property<string>("PasswordHash")
                         .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("varchar(255)");
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
 
                     b.Property<string>("PasswordResetToken")
-                        .HasColumnType("longtext");
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
 
                     b.Property<DateTime?>("PasswordResetTokenExpiresAt")
                         .HasColumnType("datetime(6)");
 
                     b.Property<string>("Phone")
-                        .HasColumnType("longtext");
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
 
-                    b.Property<string>("Profile")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)");
+                    b.Property<int>("Profile")
+                        .HasColumnType("int");
 
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)");
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
 
                     b.Property<string>("TimeZone")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
-                        .HasMaxLength(60)
-                        .HasColumnType("varchar(60)")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)")
                         .HasDefaultValue("America/Sao_Paulo");
 
                     b.Property<DateTime>("UpdatedAt")
@@ -600,72 +591,10 @@ namespace UpTask.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("users", (string)null);
-                });
+                    b.HasIndex("Email")
+                        .IsUnique();
 
-            modelBuilder.Entity("UpTask.Domain.Entities.UserSettings", b =>
-                {
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("DateFormat")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("DefaultView")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)")
-                        .HasDefaultValue("list");
-
-                    b.Property<Guid>("Id")
-                        .HasColumnType("char(36)");
-
-                    b.Property<string>("Language")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(10)
-                        .HasColumnType("varchar(10)")
-                        .HasDefaultValue("pt-BR");
-
-                    b.Property<bool>("NotifyAssignment")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<bool>("NotifyByEmail")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<bool>("NotifyByPush")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<bool>("NotifyComment")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<bool>("NotifyDeadline")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<bool>("NotifyMention")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<string>("Theme")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)")
-                        .HasDefaultValue("system");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<int>("WeekStartsOn")
-                        .HasColumnType("int");
-
-                    b.HasKey("UserId");
-
-                    b.ToTable("user_settings", (string)null);
+                    b.ToTable("Users", (string)null);
                 });
 
             modelBuilder.Entity("UpTask.Domain.Entities.Checklist", b =>
@@ -714,7 +643,7 @@ namespace UpTask.Infrastructure.Migrations
                     b.HasOne("UpTask.Domain.Entities.User", "User")
                         .WithMany("ProjectMemberships")
                         .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Project");
@@ -726,7 +655,9 @@ namespace UpTask.Infrastructure.Migrations
                 {
                     b.HasOne("UpTask.Domain.Entities.TaskItem", null)
                         .WithMany("Dependencies")
-                        .HasForeignKey("TaskItemId");
+                        .HasForeignKey("TaskId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("UpTask.Domain.Entities.TaskItem", b =>
@@ -744,7 +675,7 @@ namespace UpTask.Infrastructure.Migrations
                     b.HasOne("UpTask.Domain.Entities.Project", "Project")
                         .WithMany("Tasks")
                         .HasForeignKey("ProjectId")
-                        .OnDelete(DeleteBehavior.Cascade);
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Assignee");
 
@@ -789,43 +720,6 @@ namespace UpTask.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("UpTask.Domain.Entities.User", b =>
-                {
-                    b.OwnsOne("UpTask.Domain.ValueObjects.Email", "Email", b1 =>
-                        {
-                            b1.Property<Guid>("UserId")
-                                .HasColumnType("char(36)");
-
-                            b1.Property<string>("Value")
-                                .IsRequired()
-                                .HasMaxLength(150)
-                                .HasColumnType("varchar(150)")
-                                .HasColumnName("Email");
-
-                            b1.HasKey("UserId");
-
-                            b1.HasIndex("Value")
-                                .IsUnique();
-
-                            b1.ToTable("users");
-
-                            b1.WithOwner()
-                                .HasForeignKey("UserId");
-                        });
-
-                    b.Navigation("Email")
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("UpTask.Domain.Entities.UserSettings", b =>
-                {
-                    b.HasOne("UpTask.Domain.Entities.User", null)
-                        .WithOne("Settings")
-                        .HasForeignKey("UpTask.Domain.Entities.UserSettings", "UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
             modelBuilder.Entity("UpTask.Domain.Entities.Checklist", b =>
                 {
                     b.Navigation("Items");
@@ -854,8 +748,6 @@ namespace UpTask.Infrastructure.Migrations
             modelBuilder.Entity("UpTask.Domain.Entities.User", b =>
                 {
                     b.Navigation("ProjectMemberships");
-
-                    b.Navigation("Settings");
                 });
 #pragma warning restore 612, 618
         }

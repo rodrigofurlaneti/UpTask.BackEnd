@@ -2,6 +2,7 @@
 using UpTask.Domain.Common;
 using UpTask.Domain.Entities;
 using UpTask.Domain.Interfaces;
+using UpTask.Domain.ValueObjects;
 using UpTask.Infrastructure.Persistence;
 using TaskStatus = UpTask.Domain.Enums.TaskStatus;
 
@@ -39,11 +40,19 @@ internal sealed class UnitOfWork(AppDbContext context) : IUnitOfWork
 internal sealed class UserRepository(AppDbContext context)
     : Repository<User>(context), IUserRepository
 {
-    public async Task<User?> GetByEmailAsync(string email, CancellationToken ct = default) =>
-        await DbSet.FirstOrDefaultAsync(u => u.Email.Value == email.ToLowerInvariant(), ct);
+    public async Task<User?> GetByEmailAsync(string email, CancellationToken ct = default)
+    {
+        var emailValue = email.ToLowerInvariant();
+        var emailVo = new Email(emailValue);
+        return await DbSet.FirstOrDefaultAsync(u => u.Email == emailVo, ct);
+    }
 
-    public async Task<bool> EmailExistsAsync(string email, CancellationToken ct = default) =>
-        await DbSet.AnyAsync(u => u.Email.Value == email.ToLowerInvariant(), ct);
+    public async Task<bool> EmailExistsAsync(string email, CancellationToken ct = default)
+    {
+        var emailValue = email.ToLowerInvariant();
+        var emailVo = new Email(emailValue);
+        return await DbSet.AnyAsync(u => u.Email == emailVo, ct);
+    }
 
     public async Task<User?> GetWithSettingsAsync(Guid id, CancellationToken ct = default) =>
         await DbSet.FirstOrDefaultAsync(u => u.Id == id, ct);

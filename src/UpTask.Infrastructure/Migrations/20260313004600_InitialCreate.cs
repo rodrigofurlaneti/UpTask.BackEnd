@@ -6,23 +6,26 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace UpTask.Infrastructure.Migrations
 {
     /// <inheritdoc />
-    public partial class Init : Migration
+    public partial class InitialCreate : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.AlterDatabase()
+                .Annotation("MySql:CharSet", "utf8mb4");
+
             migrationBuilder.CreateTable(
-                name: "categories",
+                name: "Categories",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     Name = table.Column<string>(type: "varchar(100)", maxLength: 100, nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    Description = table.Column<string>(type: "longtext", nullable: true)
+                    Description = table.Column<string>(type: "varchar(500)", maxLength: 500, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    Color = table.Column<string>(type: "varchar(7)", maxLength: 7, nullable: false, defaultValue: "#607D8B")
+                    Color = table.Column<string>(type: "varchar(10)", maxLength: 10, nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    Icon = table.Column<string>(type: "longtext", nullable: true)
+                    Icon = table.Column<string>(type: "varchar(100)", maxLength: 100, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     ParentCategoryId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
                     UserId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
@@ -31,23 +34,22 @@ namespace UpTask.Infrastructure.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_categories", x => x.Id);
+                    table.PrimaryKey("PK_Categories", x => x.Id);
                 })
                 .Annotation("MySql:CharSet", "utf8mb4");
 
             migrationBuilder.CreateTable(
-                name: "notifications",
+                name: "Notifications",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     UserId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
-                    Type = table.Column<string>(type: "varchar(30)", maxLength: 30, nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    Type = table.Column<int>(type: "int", nullable: false),
                     Title = table.Column<string>(type: "varchar(200)", maxLength: 200, nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    Message = table.Column<string>(type: "longtext", nullable: true)
+                    Message = table.Column<string>(type: "varchar(1000)", maxLength: 1000, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    ReferenceType = table.Column<string>(type: "varchar(50)", maxLength: 50, nullable: true)
+                    ReferenceType = table.Column<string>(type: "varchar(100)", maxLength: 100, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     ReferenceId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
                     IsRead = table.Column<bool>(type: "tinyint(1)", nullable: false),
@@ -58,83 +60,79 @@ namespace UpTask.Infrastructure.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_notifications", x => x.Id);
+                    table.PrimaryKey("PK_Notifications", x => x.Id);
                 })
                 .Annotation("MySql:CharSet", "utf8mb4");
 
             migrationBuilder.CreateTable(
-                name: "projects",
+                name: "Projects",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     OwnerId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     Name = table.Column<string>(type: "varchar(150)", maxLength: 150, nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    Description = table.Column<string>(type: "longtext", nullable: true)
+                    Description = table.Column<string>(type: "varchar(2000)", maxLength: 2000, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    Color = table.Column<string>(type: "varchar(7)", maxLength: 7, nullable: false, defaultValue: "#1976D2")
+                    Color = table.Column<string>(type: "varchar(10)", maxLength: 10, nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    Icon = table.Column<string>(type: "longtext", nullable: true)
+                    Icon = table.Column<string>(type: "varchar(100)", maxLength: 100, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    Status = table.Column<string>(type: "varchar(20)", maxLength: 20, nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    Priority = table.Column<string>(type: "varchar(20)", maxLength: 20, nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    Status = table.Column<int>(type: "int", nullable: false),
+                    Priority = table.Column<int>(type: "int", nullable: false),
                     StartDate = table.Column<DateOnly>(type: "date", nullable: true),
                     PlannedEndDate = table.Column<DateOnly>(type: "date", nullable: true),
                     ActualEndDate = table.Column<DateOnly>(type: "date", nullable: true),
-                    Progress = table.Column<int>(type: "int", nullable: false),
+                    Progress = table.Column<int>(type: "int", nullable: false, defaultValue: 0),
                     CategoryId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_projects", x => x.Id);
+                    table.PrimaryKey("PK_Projects", x => x.Id);
                 })
                 .Annotation("MySql:CharSet", "utf8mb4");
 
             migrationBuilder.CreateTable(
-                name: "tags",
+                name: "Tags",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     UserId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
-                    Name = table.Column<string>(type: "varchar(60)", maxLength: 60, nullable: false)
+                    Name = table.Column<string>(type: "varchar(100)", maxLength: 100, nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    Color = table.Column<string>(type: "longtext", nullable: false)
+                    Color = table.Column<string>(type: "varchar(10)", maxLength: 10, nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_tags", x => x.Id);
+                    table.PrimaryKey("PK_Tags", x => x.Id);
                 })
                 .Annotation("MySql:CharSet", "utf8mb4");
 
             migrationBuilder.CreateTable(
-                name: "users",
+                name: "Users",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     Name = table.Column<string>(type: "varchar(100)", maxLength: 100, nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    Email = table.Column<string>(type: "varchar(150)", maxLength: 150, nullable: false)
+                    Email = table.Column<string>(type: "varchar(320)", maxLength: 320, nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    PasswordHash = table.Column<string>(type: "varchar(255)", maxLength: 255, nullable: false)
+                    PasswordHash = table.Column<string>(type: "varchar(500)", maxLength: 500, nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    Profile = table.Column<string>(type: "varchar(20)", maxLength: 20, nullable: false)
+                    Profile = table.Column<int>(type: "int", nullable: false),
+                    Status = table.Column<int>(type: "int", nullable: false),
+                    AvatarUrl = table.Column<string>(type: "varchar(500)", maxLength: 500, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    Status = table.Column<string>(type: "varchar(20)", maxLength: 20, nullable: false)
+                    Phone = table.Column<string>(type: "varchar(30)", maxLength: 30, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    AvatarUrl = table.Column<string>(type: "longtext", nullable: true)
+                    TimeZone = table.Column<string>(type: "varchar(100)", maxLength: 100, nullable: false, defaultValue: "America/Sao_Paulo")
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    Phone = table.Column<string>(type: "longtext", nullable: true)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    TimeZone = table.Column<string>(type: "varchar(60)", maxLength: 60, nullable: false, defaultValue: "America/Sao_Paulo")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    PasswordResetToken = table.Column<string>(type: "longtext", nullable: true)
+                    PasswordResetToken = table.Column<string>(type: "varchar(200)", maxLength: 200, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     PasswordResetTokenExpiresAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
                     LastLoginAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
@@ -143,19 +141,18 @@ namespace UpTask.Infrastructure.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_users", x => x.Id);
+                    table.PrimaryKey("PK_Users", x => x.Id);
                 })
                 .Annotation("MySql:CharSet", "utf8mb4");
 
             migrationBuilder.CreateTable(
-                name: "project_members",
+                name: "ProjectMembers",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     ProjectId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     UserId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
-                    Role = table.Column<string>(type: "varchar(20)", maxLength: 20, nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    Role = table.Column<int>(type: "int", nullable: false),
                     InvitedBy = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
                     AcceptedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
@@ -163,24 +160,24 @@ namespace UpTask.Infrastructure.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_project_members", x => x.Id);
+                    table.PrimaryKey("PK_ProjectMembers", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_project_members_projects_ProjectId",
+                        name: "FK_ProjectMembers_Projects_ProjectId",
                         column: x => x.ProjectId,
-                        principalTable: "projects",
+                        principalTable: "Projects",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "FK_project_members_users_UserId",
+                        name: "FK_ProjectMembers_Users_UserId",
                         column: x => x.UserId,
-                        principalTable: "users",
+                        principalTable: "Users",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                 })
                 .Annotation("MySql:CharSet", "utf8mb4");
 
             migrationBuilder.CreateTable(
-                name: "tasks",
+                name: "Tasks",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
@@ -191,17 +188,15 @@ namespace UpTask.Infrastructure.Migrations
                     CategoryId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
                     Title = table.Column<string>(type: "varchar(250)", maxLength: 250, nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    Description = table.Column<string>(type: "longtext", nullable: true)
+                    Description = table.Column<string>(type: "varchar(5000)", maxLength: 5000, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    Status = table.Column<string>(type: "varchar(20)", maxLength: 20, nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    Priority = table.Column<string>(type: "varchar(20)", maxLength: 20, nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    Status = table.Column<int>(type: "int", nullable: false),
+                    Priority = table.Column<int>(type: "int", nullable: false),
                     StartDate = table.Column<DateTime>(type: "datetime(6)", nullable: true),
                     DueDate = table.Column<DateTime>(type: "datetime(6)", nullable: true),
                     CompletedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
-                    EstimatedHours = table.Column<decimal>(type: "decimal(6,2)", precision: 6, scale: 2, nullable: true),
-                    HoursWorked = table.Column<decimal>(type: "decimal(6,2)", precision: 6, scale: 2, nullable: false, defaultValue: 0m),
+                    EstimatedHours = table.Column<decimal>(type: "decimal(10,2)", precision: 10, scale: 2, nullable: true),
+                    HoursWorked = table.Column<decimal>(type: "decimal(10,2)", precision: 10, scale: 2, nullable: false, defaultValue: 0m),
                     StoryPoints = table.Column<int>(type: "int", nullable: true),
                     Order = table.Column<int>(type: "int", nullable: false),
                     IsRecurring = table.Column<bool>(type: "tinyint(1)", nullable: false),
@@ -212,71 +207,35 @@ namespace UpTask.Infrastructure.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_tasks", x => x.Id);
+                    table.PrimaryKey("PK_Tasks", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_tasks_projects_ProjectId",
+                        name: "FK_Tasks_Projects_ProjectId",
                         column: x => x.ProjectId,
-                        principalTable: "projects",
+                        principalTable: "Projects",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.SetNull);
                     table.ForeignKey(
-                        name: "FK_tasks_tasks_ParentTaskId",
+                        name: "FK_Tasks_Tasks_ParentTaskId",
                         column: x => x.ParentTaskId,
-                        principalTable: "tasks",
+                        principalTable: "Tasks",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
-                        name: "FK_tasks_users_AssigneeId",
+                        name: "FK_Tasks_Users_AssigneeId",
                         column: x => x.AssigneeId,
-                        principalTable: "users",
+                        principalTable: "Users",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.SetNull);
                 })
                 .Annotation("MySql:CharSet", "utf8mb4");
 
             migrationBuilder.CreateTable(
-                name: "user_settings",
-                columns: table => new
-                {
-                    UserId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
-                    NotifyByEmail = table.Column<bool>(type: "tinyint(1)", nullable: false),
-                    NotifyByPush = table.Column<bool>(type: "tinyint(1)", nullable: false),
-                    NotifyDeadline = table.Column<bool>(type: "tinyint(1)", nullable: false),
-                    NotifyAssignment = table.Column<bool>(type: "tinyint(1)", nullable: false),
-                    NotifyComment = table.Column<bool>(type: "tinyint(1)", nullable: false),
-                    NotifyMention = table.Column<bool>(type: "tinyint(1)", nullable: false),
-                    DefaultView = table.Column<string>(type: "varchar(20)", maxLength: 20, nullable: false, defaultValue: "list")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    Theme = table.Column<string>(type: "varchar(20)", maxLength: 20, nullable: false, defaultValue: "system")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    Language = table.Column<string>(type: "varchar(10)", maxLength: 10, nullable: false, defaultValue: "pt-BR")
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    WeekStartsOn = table.Column<int>(type: "int", nullable: false),
-                    DateFormat = table.Column<string>(type: "longtext", nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
-                    CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_user_settings", x => x.UserId);
-                    table.ForeignKey(
-                        name: "FK_user_settings_users_UserId",
-                        column: x => x.UserId,
-                        principalTable: "users",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                })
-                .Annotation("MySql:CharSet", "utf8mb4");
-
-            migrationBuilder.CreateTable(
-                name: "checklists",
+                name: "Checklists",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     TaskId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
-                    Title = table.Column<string>(type: "varchar(150)", maxLength: 150, nullable: false)
+                    Title = table.Column<string>(type: "varchar(200)", maxLength: 200, nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     Order = table.Column<int>(type: "int", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
@@ -284,24 +243,24 @@ namespace UpTask.Infrastructure.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_checklists", x => x.Id);
+                    table.PrimaryKey("PK_Checklists", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_checklists_tasks_TaskId",
+                        name: "FK_Checklists_Tasks_TaskId",
                         column: x => x.TaskId,
-                        principalTable: "tasks",
+                        principalTable: "Tasks",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 })
                 .Annotation("MySql:CharSet", "utf8mb4");
 
             migrationBuilder.CreateTable(
-                name: "comments",
+                name: "Comments",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     TaskId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     UserId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
-                    Content = table.Column<string>(type: "longtext", nullable: false)
+                    Content = table.Column<string>(type: "varchar(5000)", maxLength: 5000, nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     IsEdited = table.Column<bool>(type: "tinyint(1)", nullable: false),
                     EditedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
@@ -312,48 +271,47 @@ namespace UpTask.Infrastructure.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_comments", x => x.Id);
+                    table.PrimaryKey("PK_Comments", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_comments_tasks_TaskId",
+                        name: "FK_Comments_Tasks_TaskId",
                         column: x => x.TaskId,
-                        principalTable: "tasks",
+                        principalTable: "Tasks",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "FK_comments_users_UserId",
+                        name: "FK_Comments_Users_UserId",
                         column: x => x.UserId,
-                        principalTable: "users",
+                        principalTable: "Users",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                 })
                 .Annotation("MySql:CharSet", "utf8mb4");
 
             migrationBuilder.CreateTable(
-                name: "task_dependencies",
+                name: "TaskDependencies",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     TaskId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     DependsOnId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
-                    Type = table.Column<string>(type: "varchar(20)", maxLength: 20, nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
-                    TaskItemId = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
+                    Type = table.Column<int>(type: "int", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_task_dependencies", x => x.Id);
+                    table.PrimaryKey("PK_TaskDependencies", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_task_dependencies_tasks_TaskItemId",
-                        column: x => x.TaskItemId,
-                        principalTable: "tasks",
-                        principalColumn: "Id");
+                        name: "FK_TaskDependencies_Tasks_TaskId",
+                        column: x => x.TaskId,
+                        principalTable: "Tasks",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
                 })
                 .Annotation("MySql:CharSet", "utf8mb4");
 
             migrationBuilder.CreateTable(
-                name: "task_tags",
+                name: "TaskTags",
                 columns: table => new
                 {
                     TaskId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
@@ -361,24 +319,24 @@ namespace UpTask.Infrastructure.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_task_tags", x => new { x.TaskId, x.TagId });
+                    table.PrimaryKey("PK_TaskTags", x => new { x.TaskId, x.TagId });
                     table.ForeignKey(
-                        name: "FK_task_tags_tags_TagId",
+                        name: "FK_TaskTags_Tags_TagId",
                         column: x => x.TagId,
-                        principalTable: "tags",
+                        principalTable: "Tags",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "FK_task_tags_tasks_TaskId",
+                        name: "FK_TaskTags_Tasks_TaskId",
                         column: x => x.TaskId,
-                        principalTable: "tasks",
+                        principalTable: "Tasks",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 })
                 .Annotation("MySql:CharSet", "utf8mb4");
 
             migrationBuilder.CreateTable(
-                name: "time_entries",
+                name: "TimeEntries",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
@@ -387,36 +345,36 @@ namespace UpTask.Infrastructure.Migrations
                     StartTime = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     EndTime = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     DurationMinutes = table.Column<int>(type: "int", nullable: false),
-                    Description = table.Column<string>(type: "varchar(300)", maxLength: 300, nullable: true)
+                    Description = table.Column<string>(type: "varchar(500)", maxLength: 500, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_time_entries", x => x.Id);
+                    table.PrimaryKey("PK_TimeEntries", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_time_entries_tasks_TaskId",
+                        name: "FK_TimeEntries_Tasks_TaskId",
                         column: x => x.TaskId,
-                        principalTable: "tasks",
+                        principalTable: "Tasks",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "FK_time_entries_users_UserId",
+                        name: "FK_TimeEntries_Users_UserId",
                         column: x => x.UserId,
-                        principalTable: "users",
+                        principalTable: "Users",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                 })
                 .Annotation("MySql:CharSet", "utf8mb4");
 
             migrationBuilder.CreateTable(
-                name: "checklist_items",
+                name: "ChecklistItems",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
                     ChecklistId = table.Column<Guid>(type: "char(36)", nullable: false, collation: "ascii_general_ci"),
-                    Description = table.Column<string>(type: "varchar(300)", maxLength: 300, nullable: false)
+                    Description = table.Column<string>(type: "varchar(500)", maxLength: 500, nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     IsCompleted = table.Column<bool>(type: "tinyint(1)", nullable: false),
                     CompletedBy = table.Column<Guid>(type: "char(36)", nullable: true, collation: "ascii_general_ci"),
@@ -427,102 +385,97 @@ namespace UpTask.Infrastructure.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_checklist_items", x => x.Id);
+                    table.PrimaryKey("PK_ChecklistItems", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_checklist_items_checklists_ChecklistId",
+                        name: "FK_ChecklistItems_Checklists_ChecklistId",
                         column: x => x.ChecklistId,
-                        principalTable: "checklists",
+                        principalTable: "Checklists",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 })
                 .Annotation("MySql:CharSet", "utf8mb4");
 
             migrationBuilder.CreateIndex(
-                name: "IX_checklist_items_ChecklistId",
-                table: "checklist_items",
+                name: "IX_ChecklistItems_ChecklistId",
+                table: "ChecklistItems",
                 column: "ChecklistId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_checklists_TaskId",
-                table: "checklists",
+                name: "IX_Checklists_TaskId",
+                table: "Checklists",
                 column: "TaskId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_comments_TaskId",
-                table: "comments",
+                name: "IX_Comments_TaskId",
+                table: "Comments",
                 column: "TaskId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_comments_UserId",
-                table: "comments",
+                name: "IX_Comments_UserId",
+                table: "Comments",
                 column: "UserId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_notifications_UserId_IsRead",
-                table: "notifications",
+                name: "IX_Notifications_UserId_IsRead",
+                table: "Notifications",
                 columns: new[] { "UserId", "IsRead" });
 
             migrationBuilder.CreateIndex(
-                name: "IX_project_members_ProjectId_UserId",
-                table: "project_members",
+                name: "IX_ProjectMembers_ProjectId_UserId",
+                table: "ProjectMembers",
                 columns: new[] { "ProjectId", "UserId" },
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_project_members_UserId",
-                table: "project_members",
+                name: "IX_ProjectMembers_UserId",
+                table: "ProjectMembers",
                 column: "UserId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_tags_UserId_Name",
-                table: "tags",
+                name: "IX_Tags_UserId_Name",
+                table: "Tags",
                 columns: new[] { "UserId", "Name" },
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_task_dependencies_TaskId_DependsOnId",
-                table: "task_dependencies",
+                name: "IX_TaskDependencies_TaskId_DependsOnId",
+                table: "TaskDependencies",
                 columns: new[] { "TaskId", "DependsOnId" },
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_task_dependencies_TaskItemId",
-                table: "task_dependencies",
-                column: "TaskItemId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_task_tags_TagId",
-                table: "task_tags",
-                column: "TagId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_tasks_AssigneeId",
-                table: "tasks",
+                name: "IX_Tasks_AssigneeId",
+                table: "Tasks",
                 column: "AssigneeId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_tasks_ParentTaskId",
-                table: "tasks",
+                name: "IX_Tasks_ParentTaskId",
+                table: "Tasks",
                 column: "ParentTaskId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_tasks_ProjectId",
-                table: "tasks",
+                name: "IX_Tasks_ProjectId",
+                table: "Tasks",
                 column: "ProjectId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_time_entries_TaskId",
-                table: "time_entries",
+                name: "IX_TaskTags_TagId",
+                table: "TaskTags",
+                column: "TagId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_TimeEntries_TaskId",
+                table: "TimeEntries",
                 column: "TaskId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_time_entries_UserId",
-                table: "time_entries",
+                name: "IX_TimeEntries_UserId",
+                table: "TimeEntries",
                 column: "UserId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_users_Email",
-                table: "users",
+                name: "IX_Users_Email",
+                table: "Users",
                 column: "Email",
                 unique: true);
         }
@@ -531,46 +484,43 @@ namespace UpTask.Infrastructure.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
-                name: "categories");
+                name: "Categories");
 
             migrationBuilder.DropTable(
-                name: "checklist_items");
+                name: "ChecklistItems");
 
             migrationBuilder.DropTable(
-                name: "comments");
+                name: "Comments");
 
             migrationBuilder.DropTable(
-                name: "notifications");
+                name: "Notifications");
 
             migrationBuilder.DropTable(
-                name: "project_members");
+                name: "ProjectMembers");
 
             migrationBuilder.DropTable(
-                name: "task_dependencies");
+                name: "TaskDependencies");
 
             migrationBuilder.DropTable(
-                name: "task_tags");
+                name: "TaskTags");
 
             migrationBuilder.DropTable(
-                name: "time_entries");
+                name: "TimeEntries");
 
             migrationBuilder.DropTable(
-                name: "user_settings");
+                name: "Checklists");
 
             migrationBuilder.DropTable(
-                name: "checklists");
+                name: "Tags");
 
             migrationBuilder.DropTable(
-                name: "tags");
+                name: "Tasks");
 
             migrationBuilder.DropTable(
-                name: "tasks");
+                name: "Projects");
 
             migrationBuilder.DropTable(
-                name: "projects");
-
-            migrationBuilder.DropTable(
-                name: "users");
+                name: "Users");
         }
     }
 }

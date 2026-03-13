@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -22,14 +22,16 @@ public static class InfrastructureServiceRegistration
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        // ── Database ──────────────────────────────────────────────────────────
+        var connectionString = configuration.GetConnectionString("DefaultConnection");
+
         services.AddDbContext<AppDbContext>(opts =>
-            opts.UseSqlServer(
-                configuration.GetConnectionString("DefaultConnection"),
-                sql =>
+            opts.UseMySql(
+                connectionString,
+                ServerVersion.AutoDetect(connectionString),
+                mysql =>
                 {
-                    sql.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName);
-                    sql.EnableRetryOnFailure(maxRetryCount: 5);
+                    mysql.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName);
+                    mysql.EnableRetryOnFailure(maxRetryCount: 5);
                 }));
 
         // ── Repositories ──────────────────────────────────────────────────────
