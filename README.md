@@ -92,6 +92,7 @@ dotnet run --project src/UpTask.API
 # Swagger: https://localhost:5001/swagger
 ```
 
+
 ### Executar os Testes
 
 ```bash
