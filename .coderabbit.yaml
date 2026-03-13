@@ -1,0 +1,33 @@
+﻿language: pt-BR
+reviews:
+  profile: "assertive"
+  auto_review:
+    enabled: true
+  path_instructions:
+    - path: "src/UpTask.Domain/**"
+      instructions: |
+        Revise as Entidades e Value Objects garantindo que sejam ricos (com comportamento) e não anêmicos. 
+        Verifique se o encapsulamento é forte (setters privados). 
+        Aplique os princípios de Object Calisthenics: apenas um nível de indentação por método e nada de 'else'.
+    
+    - path: "src/UpTask.Application/**"
+      instructions: |
+        Garanta o uso do CQRS com MediatR. 
+        É OBRIGATÓRIO o uso do Result Pattern para retornos. 
+        Não aceite o lançamento de exceções para controle de fluxo de negócio. 
+        Valide se as regras de validação estão no FluentValidation.
+    
+    - path: "src/UpTask.Infrastructure/**"
+      instructions: |
+        Verifique se as implementações de persistência (EF Core) não estão vazando lógica de domínio. 
+        Garanta que o DbContext trate o disparo de Domain Events no SaveChanges.
+    
+    - path: "src/UpTask.API/**"
+      instructions: |
+        Os Controllers devem ser magros, apenas chamando o MediatR. 
+        Verifique se o mapeamento do Result Pattern para status HTTP (404, 400, etc) está correto.
+    
+    - path: "tests/**"
+      instructions: |
+        Valide se os testes de unidade usam xUnit. 
+        Garanta que os arquivos .feature no projeto BDD.Tests reflitam fielmente as regras de negócio de UpTask (ex: regras de conclusão de tarefa e dono de projeto).
